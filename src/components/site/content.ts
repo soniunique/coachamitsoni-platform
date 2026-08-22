@@ -1,5 +1,5 @@
 export const LINKEDIN_URL = "https://www.linkedin.com/in/coach-amit-soni-a8837b42b";
-export const LEARN_URL = "https://learn.coachamitsoni.com";
+export const LEARN_URL = "https://learn.coachamitsoni.com/learn/login";
 export const EMAIL = "coachamitsoni@gmail.com";
 
 export const STATS = [
