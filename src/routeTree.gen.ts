@@ -12,13 +12,16 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LearnIndexRouteImport } from './routes/learn/index'
 import { Route as LearnCoursesRouteImport } from './routes/learn/courses'
+import { Route as LearnForgotPasswordRouteImport } from './routes/learn/forgot-password'
 import { Route as LearnHelpRouteImport } from './routes/learn/help'
 import { Route as LearnLoginRouteImport } from './routes/learn/login'
 import { Route as LearnMessagesRouteImport } from './routes/learn/messages'
 import { Route as LearnNotificationsRouteImport } from './routes/learn/notifications'
 import { Route as LearnProfileRouteImport } from './routes/learn/profile'
 import { Route as LearnRegisterRouteImport } from './routes/learn/register'
+import { Route as LearnResetPasswordRouteImport } from './routes/learn/reset-password'
 import { Route as LearnWorkshopsRouteImport } from './routes/learn/workshops'
+import { Route as LearnManageCoursesRouteImport } from './routes/learn/manage/courses'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,6 +36,11 @@ const LearnIndexRoute = LearnIndexRouteImport.update({
 const LearnCoursesRoute = LearnCoursesRouteImport.update({
   id: '/learn/courses',
   path: '/learn/courses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnForgotPasswordRoute = LearnForgotPasswordRouteImport.update({
+  id: '/learn/forgot-password',
+  path: '/learn/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LearnHelpRoute = LearnHelpRouteImport.update({
@@ -65,99 +73,130 @@ const LearnRegisterRoute = LearnRegisterRouteImport.update({
   path: '/learn/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LearnResetPasswordRoute = LearnResetPasswordRouteImport.update({
+  id: '/learn/reset-password',
+  path: '/learn/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LearnWorkshopsRoute = LearnWorkshopsRouteImport.update({
   id: '/learn/workshops',
   path: '/learn/workshops',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LearnManageCoursesRoute = LearnManageCoursesRouteImport.update({
+  id: '/learn/manage/courses',
+  path: '/learn/manage/courses',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/learn/courses': typeof LearnCoursesRoute
+  '/learn/forgot-password': typeof LearnForgotPasswordRoute
   '/learn/help': typeof LearnHelpRoute
   '/learn/login': typeof LearnLoginRoute
   '/learn/messages': typeof LearnMessagesRoute
   '/learn/notifications': typeof LearnNotificationsRoute
   '/learn/profile': typeof LearnProfileRoute
   '/learn/register': typeof LearnRegisterRoute
+  '/learn/reset-password': typeof LearnResetPasswordRoute
   '/learn/workshops': typeof LearnWorkshopsRoute
   '/learn/': typeof LearnIndexRoute
+  '/learn/manage/courses': typeof LearnManageCoursesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/learn/courses': typeof LearnCoursesRoute
+  '/learn/forgot-password': typeof LearnForgotPasswordRoute
   '/learn/help': typeof LearnHelpRoute
   '/learn/login': typeof LearnLoginRoute
   '/learn/messages': typeof LearnMessagesRoute
   '/learn/notifications': typeof LearnNotificationsRoute
   '/learn/profile': typeof LearnProfileRoute
   '/learn/register': typeof LearnRegisterRoute
+  '/learn/reset-password': typeof LearnResetPasswordRoute
   '/learn/workshops': typeof LearnWorkshopsRoute
   '/learn': typeof LearnIndexRoute
+  '/learn/manage/courses': typeof LearnManageCoursesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/learn/courses': typeof LearnCoursesRoute
+  '/learn/forgot-password': typeof LearnForgotPasswordRoute
   '/learn/help': typeof LearnHelpRoute
   '/learn/login': typeof LearnLoginRoute
   '/learn/messages': typeof LearnMessagesRoute
   '/learn/notifications': typeof LearnNotificationsRoute
   '/learn/profile': typeof LearnProfileRoute
   '/learn/register': typeof LearnRegisterRoute
+  '/learn/reset-password': typeof LearnResetPasswordRoute
   '/learn/workshops': typeof LearnWorkshopsRoute
   '/learn/': typeof LearnIndexRoute
+  '/learn/manage/courses': typeof LearnManageCoursesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/learn/courses'
+    | '/learn/forgot-password'
     | '/learn/help'
     | '/learn/login'
     | '/learn/messages'
     | '/learn/notifications'
     | '/learn/profile'
     | '/learn/register'
+    | '/learn/reset-password'
     | '/learn/workshops'
     | '/learn/'
+    | '/learn/manage/courses'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/learn/courses'
+    | '/learn/forgot-password'
     | '/learn/help'
     | '/learn/login'
     | '/learn/messages'
     | '/learn/notifications'
     | '/learn/profile'
     | '/learn/register'
+    | '/learn/reset-password'
     | '/learn/workshops'
     | '/learn'
+    | '/learn/manage/courses'
   id:
     | '__root__'
     | '/'
     | '/learn/courses'
+    | '/learn/forgot-password'
     | '/learn/help'
     | '/learn/login'
     | '/learn/messages'
     | '/learn/notifications'
     | '/learn/profile'
     | '/learn/register'
+    | '/learn/reset-password'
     | '/learn/workshops'
     | '/learn/'
+    | '/learn/manage/courses'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LearnCoursesRoute: typeof LearnCoursesRoute
+  LearnForgotPasswordRoute: typeof LearnForgotPasswordRoute
   LearnHelpRoute: typeof LearnHelpRoute
   LearnLoginRoute: typeof LearnLoginRoute
   LearnMessagesRoute: typeof LearnMessagesRoute
   LearnNotificationsRoute: typeof LearnNotificationsRoute
   LearnProfileRoute: typeof LearnProfileRoute
   LearnRegisterRoute: typeof LearnRegisterRoute
+  LearnResetPasswordRoute: typeof LearnResetPasswordRoute
   LearnWorkshopsRoute: typeof LearnWorkshopsRoute
   LearnIndexRoute: typeof LearnIndexRoute
+  LearnManageCoursesRoute: typeof LearnManageCoursesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -181,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/learn/courses'
       fullPath: '/learn/courses'
       preLoaderRoute: typeof LearnCoursesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/forgot-password': {
+      id: '/learn/forgot-password'
+      path: '/learn/forgot-password'
+      fullPath: '/learn/forgot-password'
+      preLoaderRoute: typeof LearnForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/learn/help': {
@@ -225,11 +271,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnRegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/learn/reset-password': {
+      id: '/learn/reset-password'
+      path: '/learn/reset-password'
+      fullPath: '/learn/reset-password'
+      preLoaderRoute: typeof LearnResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/learn/workshops': {
       id: '/learn/workshops'
       path: '/learn/workshops'
       fullPath: '/learn/workshops'
       preLoaderRoute: typeof LearnWorkshopsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learn/manage/courses': {
+      id: '/learn/manage/courses'
+      path: '/learn/manage/courses'
+      fullPath: '/learn/manage/courses'
+      preLoaderRoute: typeof LearnManageCoursesRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -238,14 +298,17 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LearnCoursesRoute: LearnCoursesRoute,
+  LearnForgotPasswordRoute: LearnForgotPasswordRoute,
   LearnHelpRoute: LearnHelpRoute,
   LearnLoginRoute: LearnLoginRoute,
   LearnMessagesRoute: LearnMessagesRoute,
   LearnNotificationsRoute: LearnNotificationsRoute,
   LearnProfileRoute: LearnProfileRoute,
   LearnRegisterRoute: LearnRegisterRoute,
+  LearnResetPasswordRoute: LearnResetPasswordRoute,
   LearnWorkshopsRoute: LearnWorkshopsRoute,
   LearnIndexRoute: LearnIndexRoute,
+  LearnManageCoursesRoute: LearnManageCoursesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
