@@ -1,7 +1,6 @@
 -- Admin-only course enrolment management.
 -- The application has exactly two authorization roles: student and admin.
 
-drop constraint if exists profiles_role_check;
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check check (role = any (array['student'::text, 'admin'::text]));
 
