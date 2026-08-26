@@ -27,6 +27,7 @@ export type Database = {
       admin_get_course_roster: { Args: { p_course_id: string }; Returns: { student_id: string; email: string; full_name: string; enrollment_id: string | null; enrollment_status: string | null; progress_percent: number | null; enrolled_at: string | null; completed_at: string | null }[] };
       admin_enroll_student: { Args: { p_course_id: string; p_user_id: string }; Returns: Tables<"enrollments"> };
       admin_unenroll_student: { Args: { p_course_id: string; p_user_id: string }; Returns: Tables<"enrollments"> };
+      admin_set_course_enrollment: { Args: { p_course_id: string; p_user_id: string; p_enrolled: boolean }; Returns: Tables<"enrollments"> };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
