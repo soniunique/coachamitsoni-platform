@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Bell, BookOpen, ChevronRight, CircleHelp, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare, UserRound, Users, X } from "lucide-react";
+import { Bell, BookOpen, ChevronRight, CircleHelp, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare, UserCheck, UserRound, Users, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { signOut } from "@/lib/auth";
 import logo from "@/assets/amit-logo.png";
@@ -93,6 +93,7 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
               return <Link key={to} to={to} onClick={() => setOpen(false)} className={`learn-nav-item ${isActive ? "active" : ""}`}><Icon size={18} /><span>{label}</span></Link>;
             })}
             {isAdmin && <Link to="/learn/manage/courses" onClick={() => setOpen(false)} className={`learn-nav-item ${active.startsWith("/learn/manage/courses") ? "active" : ""}`}><BookOpen size={18} /><span>Course Manager</span></Link>}
+            {isAdmin && <Link to="/learn/manage/course-students/$courseId" params={{ courseId: "d281de07-5d36-4e00-bbb9-696a4d0d9b9c" }} onClick={() => setOpen(false)} className={`learn-nav-item ${active.startsWith("/learn/manage/course-students") ? "active" : ""}`}><UserCheck size={18} /><span>Enrolments</span></Link>}
             {nav.slice(3).map(({ label, to, icon: Icon }) => {
               const isActive = active.startsWith(to);
               return <Link key={to} to={to} onClick={() => setOpen(false)} className={`learn-nav-item ${isActive ? "active" : ""}`}><Icon size={18} /><span>{label}</span></Link>;
