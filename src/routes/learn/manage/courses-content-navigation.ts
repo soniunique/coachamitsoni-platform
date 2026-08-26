@@ -1,0 +1,1 @@
+This file intentionally documents the navigation decision for course content. Native location navigation is used in courses.tsx to bypass client-side route-link resolution while preserving the existing server route and admin checks.
