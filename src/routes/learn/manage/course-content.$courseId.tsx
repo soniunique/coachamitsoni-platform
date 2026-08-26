@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 type Course = { id: string; title: string; slug: string; status: string };
 type Module = { id: string; title: string; description: string | null; sort_order: number };
 
-export const Route = createFileRoute("/learn/manage/courses/$courseId")({ component: CourseContentManager });
+export const Route = createFileRoute("/learn/manage/course-content/$courseId")({ component: CourseContentManager });
 
 function CourseContentManager() {
   const { courseId } = Route.useParams();
