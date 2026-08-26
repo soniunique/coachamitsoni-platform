@@ -37,7 +37,9 @@ function CourseStudentsManager() {
     if (courseError || !courseData) { setError(courseError?.message ?? "Course not found."); setLoading(false); return; }
     if (studentError) { setError(studentError.message); setLoading(false); return; }
     if (rosterError) { setError(rosterError.message); setLoading(false); return; }
-    setCourse(courseData as Course); setStudents((studentData ?? []) as Student[]); setRoster((rosterData ?? []) as RosterRow[]); setLoading(false);
+    setCourse(courseData as Course); setStudents((studentData ?? []) as Student[]);
+    setRoster(((rosterData ?? []) as Array<Omit<RosterRow, "id"> & { student_id: string }>).map(student => ({ ...student, id: student.student_id })));
+    setLoading(false);
   }
 
   useEffect(() => { void load(); }, [courseId]);
@@ -49,6 +51,7 @@ function CourseStudentsManager() {
   }, [roster, search]);
 
   async function setEnrollment(studentId: string, enrolled: boolean) {
+    if (!studentId) { setError("Student account ID is missing; enrolment was not submitted."); return; }
     setSavingId(studentId); setError(""); setSuccess("");
     const { error: actionError } = await supabase.rpc("admin_set_course_enrollment", { p_course_id: courseId, p_user_id: studentId, p_enrolled: enrolled });
     if (actionError) setError(actionError.message); else { setSuccess(enrolled ? "Student enrolled in the complete course." : "Student un-enrolled from the course."); await load(); }
