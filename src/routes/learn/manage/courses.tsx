@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Loader2, Pencil, Plus, Save, Trash2, X, Layers } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
