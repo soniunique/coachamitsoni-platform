@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { Link, useLocation } from "@tanstack/react-router";
-import { Bell, BookOpen, ChevronRight, CircleHelp, LayoutDashboard, LogOut, Menu, MessageSquare, UserRound, Users, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Bell, BookOpen, ChevronRight, CircleHelp, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare, UserRound, Users, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { signOut } from "@/lib/auth";
 import logo from "@/assets/amit-logo.png";
 
 const nav = [
@@ -12,8 +14,57 @@ const nav = [
 
 export function LearnShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const active = location.pathname;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkSession() {
+      const { data } = await supabase.auth.getUser();
+      if (!mounted) return;
+
+      if (!data.user) {
+        await navigate({ to: "/learn/login", replace: true });
+        return;
+      }
+
+      setAuthChecked(true);
+    }
+
+    void checkSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted || session) return;
+      void navigate({ to: "/learn/login", replace: true });
+    });
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut();
+      await navigate({ to: "/learn/login", replace: true });
+    } catch {
+      setSigningOut(false);
+    }
+  }
+
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#07111f] text-white">
+        <Loader2 size={24} className="animate-spin text-cyan-300" aria-label="Checking session" />
+      </div>
+    );
+  }
 
   return (
     <div className="learn-app min-h-screen bg-[#07111f] text-white">
@@ -44,7 +95,9 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto space-y-1 px-3 pb-5">
           <Link to="/learn/profile" className="learn-nav-item"><UserRound size={18}/><span>Profile</span></Link>
           <Link to="/learn/help" className="learn-nav-item"><CircleHelp size={18}/><span>Help</span></Link>
-          <a href="/" className="learn-nav-item"><LogOut size={18}/><span>Exit Learning Hub</span></a>
+          <button type="button" onClick={() => void handleSignOut()} disabled={signingOut} className="learn-nav-item w-full text-left disabled:opacity-60">
+            {signingOut ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18}/>}<span>{signingOut ? "Signing out…" : "Exit Learning Hub"}</span>
+          </button>
         </div>
       </aside>
 
