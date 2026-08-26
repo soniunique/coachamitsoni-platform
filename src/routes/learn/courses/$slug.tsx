@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, CheckCircle2, CirclePlay, ExternalLink, FileText, Loader2, LockKeyhole, X } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle2, CirclePlay, ExternalLink, Loader2, LockKeyhole, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LearnShell } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,13 +45,17 @@ function CourseDetail() {
       if (moduleError) { setError(moduleError.message); setLoading(false); return; }
       const loadedModules = (moduleData ?? []) as Module[]; setModules(loadedModules);
       const moduleIds = loadedModules.map(m => m.id);
+      const { data: { user } } = await supabase.auth.getUser();
+      let currentEnrolled = false;
+      if (user) {
+        const { data: enrollment } = await supabase.from("enrollments").select("id, status").eq("user_id", user.id).eq("course_id", courseData.id).in("status", ["active", "completed"]).maybeSingle();
+        currentEnrolled = Boolean(enrollment);
+      }
+      setEnrolled(currentEnrolled);
       const { data: lessonData, error: lessonError } = await supabase.from("course_lessons").select("id, module_id, title, description, content_url, content_body, content_storage_path, content_type, sort_order, is_preview").in("module_id", moduleIds.length ? moduleIds : ["00000000-0000-0000-0000-000000000000"]).order("sort_order", { ascending: true });
       if (lessonError) { setError(lessonError.message); setLoading(false); return; }
       setLessons((lessonData ?? []) as Lesson[]);
-      const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: enrollment } = await supabase.from("enrollments").select("id, status").eq("user_id", user.id).eq("course_id", courseData.id).in("status", ["active", "completed"]).maybeSingle();
-        setEnrolled(Boolean(enrollment));
         const lessonIds = (lessonData ?? []).map((lesson: Lesson) => lesson.id);
         if (lessonIds.length) { const { data: progress } = await supabase.from("lesson_progress").select("lesson_id, completed").eq("user_id", user.id).in("lesson_id", lessonIds); setCompleted(new Set((progress ?? []).filter((item: {completed:boolean})=>item.completed).map((item: {lesson_id:string})=>item.lesson_id))); }
       }
@@ -60,9 +64,38 @@ function CourseDetail() {
     void loadCourse();
   }, [slug]);
 
+  // Re-check course enrolment whenever the student returns to the tab/window.
+  // This prevents a stale in-memory `enrolled=true` state after an admin
+  // un-enrols the student from another browser/session.
+  useEffect(() => {
+    if (!course?.id) return;
+    async function refreshEnrollment() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setEnrolled(false); setSelectedLesson(null); setSelectedUrl(null); return; }
+      const { data: enrollment } = await supabase.from("enrollments").select("id, status").eq("user_id", user.id).eq("course_id", course.id).in("status", ["active", "completed"]).maybeSingle();
+      const hasAccess = Boolean(enrollment);
+      setEnrolled(hasAccess);
+      if (!hasAccess) { setSelectedLesson(null); setSelectedUrl(null); }
+    }
+    const handleFocus = () => { void refreshEnrollment(); };
+    const handleVisibility = () => { if (document.visibilityState === "visible") void refreshEnrollment(); };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => { window.removeEventListener("focus", handleFocus); document.removeEventListener("visibilitychange", handleVisibility); };
+  }, [course?.id]);
+
   async function openLesson(lesson: Lesson) {
-    if (!enrolled && !lesson.is_preview) return;
-    setSelectedLesson(lesson); setSelectedUrl(null); setLoadingLesson(true);
+    // Never trust stale UI state for access to protected content.
+    const { data: { user } } = await supabase.auth.getUser();
+    let hasAccess = lesson.is_preview;
+    if (user && !lesson.is_preview) {
+      const { data: enrollment } = await supabase.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", course?.id ?? "").in("status", ["active", "completed"]).maybeSingle();
+      hasAccess = Boolean(enrollment);
+      setEnrolled(hasAccess);
+    }
+    if (!hasAccess) { setSelectedLesson(null); setSelectedUrl(null); setError("This lesson is locked because you are not currently enrolled in this course."); return; }
+
+    setSelectedLesson(lesson); setSelectedUrl(null); setLoadingLesson(true); setError("");
     if (lesson.content_storage_path) {
       const { data, error: signedError } = await supabase.storage.from("course-content").createSignedUrl(lesson.content_storage_path, 3600);
       if (signedError) setError(signedError.message); else setSelectedUrl(data?.signedUrl ?? null);
