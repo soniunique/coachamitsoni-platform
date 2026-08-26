@@ -115,7 +115,7 @@ function CourseContentManager() {
     });
     if (insertError) setError(insertError.message);
     else {
-      setSuccess("Lesson added successfully.");
+      setSuccess("Lesson saved successfully.");
       closeLessonForm();
       await load();
     }
@@ -169,7 +169,7 @@ function CourseContentManager() {
                 <div><label htmlFor={`lesson-url-${module.id}`} className="mb-2 block text-sm font-medium">Content URL <span className="text-slate-500">(optional)</span></label><input id={`lesson-url-${module.id}`} type="url" value={lessonUrl} onChange={e=>setLessonUrl(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400/60" placeholder="https://..." /></div>
               </div>
               <label className="flex items-center gap-3 text-sm text-slate-300"><input type="checkbox" checked={lessonPreview} onChange={e=>setLessonPreview(e.target.checked)} className="h-4 w-4 rounded border-white/20 bg-white/5"/>Available as a student preview</label>
-              <div className="flex justify-end gap-3"><button type="button" className="learn-secondary-button" onClick={closeLessonForm}>Cancel</button><button type="submit" className="learn-primary-button" disabled={savingLesson}>{savingLesson ? <><Loader2 size={16} className="animate-spin"/>Adding...</> : <><Plus size={16}/>Add lesson</>}</button></div>
+              <div className="flex justify-end gap-3"><button type="button" className="learn-secondary-button" onClick={closeLessonForm}>Cancel</button><button type="submit" className="learn-primary-button" disabled={savingLesson}>{savingLesson ? <><Loader2 size={16} className="animate-spin"/>Saving...</> : <><Plus size={16}/>Save lesson</>}</button></div>
             </form>}
             {moduleLessons.length === 0 ? <p className="mt-5 text-sm text-slate-500">No lessons yet. Use <strong className="text-slate-300">Add lesson</strong> to start building this module.</p> : <div className="mt-5 space-y-2">{moduleLessons.map((lesson,lessonIndex)=><div key={lesson.id} className="flex items-center gap-3 rounded-xl border border-white/8 bg-white/[.03] p-3"><div className="learn-icon-tile shrink-0">{lesson.content_type === "video" ? <CirclePlay size={17}/> : lesson.content_type === "link" ? <Link2 size={17}/> : <FileText size={17}/>}</div><div className="min-w-0 flex-1"><div className="text-xs text-slate-500">Lesson {lessonIndex+1}{lesson.is_preview ? " · Preview" : ""}</div><div className="text-sm font-medium text-slate-200">{lesson.title}</div>{lesson.description&&<div className="truncate text-xs text-slate-500">{lesson.description}</div>}</div><span className="hidden text-xs text-slate-500 sm:inline">{lesson.content_type || "content"}</span><button type="button" className="learn-secondary-button" onClick={()=>void deleteLesson(lesson)}><Trash2 size={14}/>Delete</button></div>)}</div>}
           </div>
