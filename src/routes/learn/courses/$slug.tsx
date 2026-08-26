@@ -11,14 +11,7 @@ type Module = { id: string; title: string; description: string | null; sort_orde
 type Lesson = { id: string; module_id: string; title: string; description: string | null; content_url: string | null; content_body: string | null; content_storage_path: string | null; content_type: string | null; sort_order: number; is_preview: boolean };
 
 function getYouTubeEmbed(url: string) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname.includes("youtube.com")) {
-      const id = parsed.searchParams.get("v");
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (parsed.hostname === "youtu.be") return `https://www.youtube.com/embed/${parsed.pathname.slice(1)}`;
-  } catch { return null; }
+  try { const parsed = new URL(url); if (parsed.hostname.includes("youtube.com")) { const id = parsed.searchParams.get("v"); return id ? `https://www.youtube.com/embed/${id}` : null; } if (parsed.hostname === "youtu.be") return `https://www.youtube.com/embed/${parsed.pathname.slice(1)}`; } catch {}
   return null;
 }
 
@@ -47,26 +40,17 @@ function CourseDetail() {
       const moduleIds = loadedModules.map(m => m.id);
       const { data: { user } } = await supabase.auth.getUser();
       let currentEnrolled = false;
-      if (user) {
-        const { data: enrollment } = await supabase.from("enrollments").select("id, status").eq("user_id", user.id).eq("course_id", courseData.id).in("status", ["active", "completed"]).maybeSingle();
-        currentEnrolled = Boolean(enrollment);
-      }
+      if (user) { const { data: enrollment } = await supabase.from("enrollments").select("id, status").eq("user_id", user.id).eq("course_id", courseData.id).in("status", ["active", "completed"]).maybeSingle(); currentEnrolled = Boolean(enrollment); }
       setEnrolled(currentEnrolled);
       const { data: lessonData, error: lessonError } = await supabase.from("course_lessons").select("id, module_id, title, description, content_url, content_body, content_storage_path, content_type, sort_order, is_preview").in("module_id", moduleIds.length ? moduleIds : ["00000000-0000-0000-0000-000000000000"]).order("sort_order", { ascending: true });
       if (lessonError) { setError(lessonError.message); setLoading(false); return; }
       setLessons((lessonData ?? []) as Lesson[]);
-      if (user) {
-        const lessonIds = (lessonData ?? []).map((lesson: Lesson) => lesson.id);
-        if (lessonIds.length) { const { data: progress } = await supabase.from("lesson_progress").select("lesson_id, completed").eq("user_id", user.id).in("lesson_id", lessonIds); setCompleted(new Set((progress ?? []).filter((item: {completed:boolean})=>item.completed).map((item: {lesson_id:string})=>item.lesson_id))); }
-      }
+      if (user) { const lessonIds = (lessonData ?? []).map((lesson: Lesson) => lesson.id); if (lessonIds.length) { const { data: progress } = await supabase.from("lesson_progress").select("lesson_id, completed").eq("user_id", user.id).in("lesson_id", lessonIds); setCompleted(new Set((progress ?? []).filter((item: {completed:boolean})=>item.completed).map((item: {lesson_id:string})=>item.lesson_id))); } }
       setLoading(false);
     }
     void loadCourse();
   }, [slug]);
 
-  // Re-check course enrolment whenever the student returns to the tab/window.
-  // This prevents a stale in-memory `enrolled=true` state after an admin
-  // un-enrols the student from another browser/session.
   useEffect(() => {
     if (!course?.id) return;
     async function refreshEnrollment() {
@@ -77,30 +61,36 @@ function CourseDetail() {
       setEnrolled(hasAccess);
       if (!hasAccess) { setSelectedLesson(null); setSelectedUrl(null); }
     }
+    const interval = window.setInterval(() => { void refreshEnrollment(); }, 5000);
     const handleFocus = () => { void refreshEnrollment(); };
     const handleVisibility = () => { if (document.visibilityState === "visible") void refreshEnrollment(); };
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => { window.removeEventListener("focus", handleFocus); document.removeEventListener("visibilitychange", handleVisibility); };
+    void refreshEnrollment();
+    return () => { window.clearInterval(interval); window.removeEventListener("focus", handleFocus); document.removeEventListener("visibilitychange", handleVisibility); };
   }, [course?.id]);
 
   async function openLesson(lesson: Lesson) {
-    // Never trust stale UI state for access to protected content.
     const { data: { user } } = await supabase.auth.getUser();
-    let hasAccess = lesson.is_preview;
-    if (user && !lesson.is_preview) {
-      const { data: enrollment } = await supabase.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", course?.id ?? "").in("status", ["active", "completed"]).maybeSingle();
-      hasAccess = Boolean(enrollment);
-      setEnrolled(hasAccess);
-    }
-    if (!hasAccess) { setSelectedLesson(null); setSelectedUrl(null); setError("This lesson is locked because you are not currently enrolled in this course."); return; }
+    if (!user && !lesson.is_preview) { setSelectedLesson(null); setSelectedUrl(null); setError("This lesson is locked because you are not currently enrolled in this course."); return; }
 
-    setSelectedLesson(lesson); setSelectedUrl(null); setLoadingLesson(true); setError("");
-    if (lesson.content_storage_path) {
-      const { data, error: signedError } = await supabase.storage.from("course-content").createSignedUrl(lesson.content_storage_path, 3600);
+    // Re-fetch the lesson through RLS immediately before rendering its content.
+    // This makes stale client-side lesson objects unusable after un-enrolment.
+    const { data: freshLesson, error: freshLessonError } = await supabase.from("course_lessons").select("id, module_id, title, description, content_url, content_body, content_storage_path, content_type, sort_order, is_preview").eq("id", lesson.id).maybeSingle();
+    if (freshLessonError || !freshLesson) { setSelectedLesson(null); setSelectedUrl(null); setEnrolled(false); setError("This lesson is locked because you are not currently enrolled in this course."); return; }
+
+    if (user && !freshLesson.is_preview) {
+      const { data: enrollment } = await supabase.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", course?.id ?? "").in("status", ["active", "completed"]).maybeSingle();
+      if (!enrollment) { setSelectedLesson(null); setSelectedUrl(null); setEnrolled(false); setError("This lesson is locked because you are not currently enrolled in this course."); return; }
+      setEnrolled(true);
+    }
+
+    setSelectedLesson(freshLesson as Lesson); setSelectedUrl(null); setLoadingLesson(true); setError("");
+    if (freshLesson.content_storage_path) {
+      const { data, error: signedError } = await supabase.storage.from("course-content").createSignedUrl(freshLesson.content_storage_path, 60);
       if (signedError) setError(signedError.message); else setSelectedUrl(data?.signedUrl ?? null);
     } else {
-      setSelectedUrl(lesson.content_url);
+      setSelectedUrl(freshLesson.content_url);
     }
     setLoadingLesson(false);
   }
