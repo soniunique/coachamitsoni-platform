@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Bell, BookOpen, CircleHelp, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare, UserCheck, UserRound, Users, X } from "lucide-react";
+import { LearnShell } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
 import { signOut } from "@/lib/auth";
 import logo from "@/assets/amit-logo.png";
@@ -16,29 +17,41 @@ const primaryNav = [
 
 export function LearnShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [displayName, setDisplayName] = useState("Learner");
   const location = useLocation();
   const navigate = useNavigate();
   const active = location.pathname;
+
   useEffect(() => {
     let mounted = true;
     async function checkSession() {
       const { data } = await supabase.auth.getUser();
       if (!mounted) return;
       if (!data.user) { await navigate({ to: "/learn/login", replace: true }); return; }
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+      const { data: profile } = await supabase.from("profiles").select("role,full_name").eq("id", data.user.id).maybeSingle();
       if (!mounted) return;
-      setIsAdmin(profile?.role === "admin"); setAuthChecked(true);
+      setIsAdmin(profile?.role === "admin");
+      setDisplayName(profile?.full_name || data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "Learner");
+      setAuthChecked(true);
     }
     void checkSession();
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => { if (!mounted || session) return; setIsAdmin(false); void navigate({ to: "/learn/login", replace: true }); });
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => { if (!mounted || session) return; setIsAdmin(false); setProfileMenuOpen(false); void navigate({ to: "/learn/login", replace: true }); });
     return () => { mounted = false; authListener.subscription.unsubscribe(); };
   }, [navigate]);
-  async function handleSignOut() { setSigningOut(true); try { await signOut(); await navigate({ to: "/learn/login", replace: true }); } catch { setSigningOut(false); } }
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try { await signOut(); setProfileMenuOpen(false); await navigate({ to: "/learn/login", replace: true }); }
+    catch { setSigningOut(false); }
+  }
+
   if (!authChecked) return <div className="flex min-h-screen items-center justify-center bg-white text-slate-700"><Loader2 size={24} className="animate-spin text-amber-500" aria-label="Checking session" /></div>;
   const isNavActive = (to: string) => to === "/learn" ? active === "/learn" : active.startsWith(to);
+
   return <div className="reference-lms min-h-screen">
     <aside className={`learn-sidebar ${open ? "is-open" : ""}`}>
       <div className="flex items-center justify-between gap-3 px-5 py-5"><Link to="/learn" onClick={() => setOpen(false)}><img src={logo} alt="Coach Amit Soni" className="h-10 w-auto" /></Link><button className="learn-mobile-close" onClick={() => setOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
@@ -47,7 +60,25 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
     </aside>
     {open&&<button className="learn-overlay" aria-label="Close navigation" onClick={()=>setOpen(false)}/>} 
     <div className="learn-main">
-      <header className="learn-topbar"><div className="learn-topbar-brand"><Link to="/learn" onClick={()=>setOpen(false)}><img src={logo} alt="Coach Amit Soni" /></Link></div><button className="learn-menu-button" onClick={()=>setOpen(true)} aria-label="Open navigation"><Menu size={20}/></button><nav className="learn-topnav" aria-label="Primary navigation">{primaryNav.map(({label,to,icon:Icon})=><Link key={to} to={to} className={`learn-topnav-item ${isNavActive(to)?"active":""}`}><Icon size={17}/><span>{label}</span></Link>)}</nav><div className="ml-auto flex items-center gap-3"><Link to="/learn/notifications" className="learn-icon-button" aria-label="Notifications"><Bell size={19}/><span className="notification-dot"/></Link><Link to="/learn/profile" className="learn-avatar" aria-label="Profile">AS</Link></div></header>
+      <header className="learn-topbar">
+        <div className="learn-topbar-brand"><Link to="/learn" onClick={()=>setOpen(false)}><img src={logo} alt="Coach Amit Soni" /></Link></div>
+        <button className="learn-menu-button" onClick={()=>setOpen(true)} aria-label="Open navigation"><Menu size={20}/></button>
+        <nav className="learn-topnav" aria-label="Primary navigation">{primaryNav.map(({label,to,icon:Icon})=><Link key={to} to={to} className={`learn-topnav-item ${isNavActive(to)?"active":""}`}><Icon size={17}/><span>{label}</span></Link>)}</nav>
+        <div className="ml-auto flex items-center gap-3">
+          <Link to="/learn/notifications" className="learn-icon-button" aria-label="Notifications"><Bell size={19}/><span className="notification-dot"/></Link>
+          <div className="learn-profile-menu-wrap">
+            <button type="button" className="learn-avatar" aria-label="Open profile menu" aria-expanded={profileMenuOpen} onClick={()=>setProfileMenuOpen((value)=>!value)}>AS</button>
+            {profileMenuOpen && <>
+              <button type="button" className="learn-profile-menu-backdrop" aria-label="Close profile menu" onClick={()=>setProfileMenuOpen(false)} />
+              <div className="learn-profile-menu" role="menu">
+                <div className="learn-profile-menu-user"><span className="learn-profile-menu-avatar">AS</span><div className="min-w-0"><strong>{displayName}</strong><span>Learning Hub</span></div></div>
+                <Link to="/learn/profile" role="menuitem" onClick={()=>setProfileMenuOpen(false)}><UserRound size={16}/><span>View profile</span></Link>
+                <button type="button" role="menuitem" onClick={()=>void handleSignOut()} disabled={signingOut} className="logout">{signingOut?<Loader2 size={16} className="animate-spin"/>:<LogOut size={16}/>}<span>{signingOut?"Logging out…":"Logout"}</span></button>
+              </div>
+            </>}
+          </div>
+        </div>
+      </header>
       {isAdmin&&<div className="reference-adminbar"><span>Admin</span><Link to="/learn/manage/courses">Course Manager</Link><Link to="/learn/manage/enrolments">Enrolments</Link><Link to="/learn/manage/workshops">Workshops</Link></div>}
       <main className="learn-content">{children}</main>
     </div>
