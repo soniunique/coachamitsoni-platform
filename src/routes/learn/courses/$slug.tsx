@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText, Film, Link2, Loader2, LockKeyhole, Menu, PlayCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText, Film, Link2, Loader2, LockKeyhole, Menu } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { LearnShell } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/learn/courses/$slug")({ component: CourseDetail });
 
-type Course = { id: string; slug: string; title: string; description: string | null; thumbnail_url: string | null; status: string };
+type Course = { id: string; slug: string; title: string; description: string | null; thumbnail_url: string | null; status: string; program_id: string };
 type Module = { id: string; title: string; description: string | null; sort_order: number };
 type Lesson = { id: string; module_id: string; title: string; description: string | null; content_url: string | null; content_body: string | null; content_storage_path: string | null; content_type: string | null; sort_order: number; is_preview: boolean };
 
@@ -42,7 +42,7 @@ function CourseDetail() {
 
   async function loadCourse() {
     setLoading(true); setError("");
-    const { data: c, error: ce } = await supabase.from("courses").select("id,slug,title,description,thumbnail_url,status").eq("slug", slug).eq("status", "published").maybeSingle();
+    const { data: c, error: ce } = await supabase.from("courses").select("id,slug,title,description,thumbnail_url,status,program_id").eq("slug", slug).eq("status", "published").maybeSingle();
     if (ce || !c) { setError(ce?.message || "Course not found."); setLoading(false); return; }
     setCourse(c as Course);
     const { data: ms, error: me } = await supabase.from("course_modules").select("id,title,description,sort_order").eq("course_id", c.id).order("sort_order");
@@ -52,7 +52,7 @@ function CourseDetail() {
     let admin = false, access = false;
     if (user) {
       const { data: p } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(); admin = p?.role === "admin";
-      if (admin) access = true; else { const { data: e } = await supabase.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", c.id).in("status", ["active", "completed"]).maybeSingle(); access = Boolean(e); }
+      if (admin) access = true; else { const { data: e } = await supabase.from("program_enrollments").select("id").eq("user_id", user.id).eq("program_id", c.program_id).in("status", ["active", "completed"]).maybeSingle(); access = Boolean(e); }
     }
     setIsAdmin(admin); setEnrolled(access);
     const ids = loadedModules.map((m) => m.id);
@@ -81,11 +81,11 @@ function CourseDetail() {
       if (!user) { setEnrolled(false); setIsAdmin(false); setSelectedId(null); setSelectedUrl(null); return; }
       const { data: p } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
       const admin = p?.role === "admin"; setIsAdmin(admin);
-      if (admin) setEnrolled(true); else { const { data: e } = await supabase.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", course.id).in("status", ["active", "completed"]).maybeSingle(); setEnrolled(Boolean(e)); }
+      if (admin) setEnrolled(true); else { const { data: e } = await supabase.from("program_enrollments").select("id").eq("user_id", user.id).eq("program_id", course.program_id).in("status", ["active", "completed"]).maybeSingle(); setEnrolled(Boolean(e)); }
     };
     const id = window.setInterval(() => void refresh(), 5000); void refresh();
     return () => window.clearInterval(id);
-  }, [course?.id]);
+  }, [course?.id, course?.program_id]);
 
   async function openLesson(lesson: Lesson, markAsComplete = false) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -93,8 +93,8 @@ function CourseDetail() {
     const { data: p } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
     const admin = p?.role === "admin";
     if (!admin) {
-      const { data: e } = await supabase.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", course?.id || "").in("status", ["active", "completed"]).maybeSingle();
-      if (!e) { setEnrolled(false); setError("Course enrolment is required to open lessons."); return; }
+      const { data: e } = await supabase.from("program_enrollments").select("id").eq("user_id", user.id).eq("program_id", course?.program_id || "").in("status", ["active", "completed"]).maybeSingle();
+      if (!e) { setEnrolled(false); setSelectedId(null); setSelectedUrl(null); setError("An administrator must enrol you in this program before lessons can be opened."); return; }
     }
     const { data: fresh, error: fe } = await supabase.from("course_lessons").select("id,module_id,title,description,content_url,content_body,content_storage_path,content_type,sort_order,is_preview").eq("id", lesson.id).maybeSingle();
     if (fe || !fresh) { setError(fe?.message || "This lesson is no longer available."); return; }
@@ -126,7 +126,7 @@ function CourseDetail() {
   return <LearnShell>
     {!selected ? <>
       <div className="mb-4 flex items-center justify-between"><Link to="/learn/courses" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={15} />All courses</Link><span className="text-xs text-slate-500">{progress}% complete</span></div>
-      <section className="learn-card p-5"><div className="learn-eyebrow">Course</div><h1 className="mt-1 text-2xl font-bold tracking-tight">{course.title}</h1><p className="mt-2 text-sm text-slate-400">{course.description || "Follow the course lessons at your own pace."}</p>{!enrolled && <div className="mt-4 flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-amber-100"><LockKeyhole size={16} />An administrator must enrol you before lessons can be opened.</div>}</section>
+      <section className="learn-card p-5"><div className="learn-eyebrow">Course</div><h1 className="mt-1 text-2xl font-bold tracking-tight">{course.title}</h1><p className="mt-2 text-sm text-slate-400">{course.description || "Follow the course lessons at your own pace."}</p>{!enrolled && <div className="mt-4 flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-amber-100"><LockKeyhole size={16} />An administrator must enrol you in this program before lessons can be opened.</div>}</section>
       <div className="mt-4 learn-card overflow-hidden">{roadmap}</div>
     </> : <>
       <div className="mb-3 flex items-center justify-between gap-3"><Link to="/learn/courses" className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-white"><ArrowLeft size={14} />All courses</Link><div className="text-xs text-slate-500">{completedCount}/{lessons.length} complete · {progress}%</div></div>
