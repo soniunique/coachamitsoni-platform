@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { signOut } from "@/lib/auth";
 import logo from "@/assets/amit-logo.png";
 import "@/styles-reference-lms.css";
+import "@/styles-reference-experience.css";
 
 const primaryNav = [
   { label: "Feed", to: "/learn", icon: LayoutDashboard },
@@ -41,13 +42,13 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
   return <div className="reference-lms min-h-screen">
     <aside className={`learn-sidebar ${open ? "is-open" : ""}`}>
       <div className="flex items-center justify-between gap-3 px-5 py-5"><Link to="/learn" onClick={() => setOpen(false)}><img src={logo} alt="Coach Amit Soni" className="h-10 w-auto" /></Link><button className="learn-mobile-close" onClick={() => setOpen(false)} aria-label="Close menu"><X size={18}/></button></div>
-      <div className="flex-1 overflow-y-auto px-3 pt-4"><nav className="space-y-1">{primaryNav.map(({label,to,icon:Icon}) => <Link key={to} to={to} onClick={() => setOpen(false)} className={`learn-nav-item ${isNavActive(to) ? "active" : ""}`}><Icon size={18}/><span>{label}</span></Link>)}{isAdmin&&<><div className="px-3 pb-2 pt-5 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Admin</div><Link to="/learn/manage/courses" onClick={()=>setOpen(false)} className="learn-nav-item"><BookOpen size={18}/><span>Course Manager</span></Link><Link to="/learn/manage/enrolments" onClick={()=>setOpen(false)} className="learn-nav-item"><UserCheck size={18}/><span>Enrolments</span></Link></>}</nav></div>
+      <div className="flex-1 overflow-y-auto px-3 pt-4"><nav className="space-y-1">{primaryNav.map(({label,to,icon:Icon}) => <Link key={to} to={to} onClick={() => setOpen(false)} className={`learn-nav-item ${isNavActive(to) ? "active" : ""}`}><Icon size={18}/><span>{label}</span></Link>)}{isAdmin&&<><div className="px-3 pb-2 pt-5 text-[10px] font-bold uppercase tracking-[.2em] text-slate-500">Admin</div><Link to="/learn/manage/courses" onClick={()=>setOpen(false)} className="learn-nav-item"><BookOpen size={18}/><span>Course Manager</span></Link><Link to="/learn/manage/enrolments" onClick={()=>setOpen(false)} className="learn-nav-item"><UserCheck size={18}/><span>Enrolments</span></Link><Link to="/learn/manage/workshops" onClick={()=>setOpen(false)} className="learn-nav-item"><Users size={18}/><span>Workshops</span></Link></>}</nav></div>
       <div className="space-y-1 px-3 pb-5"><Link to="/learn/profile" onClick={()=>setOpen(false)} className="learn-nav-item"><UserRound size={18}/><span>Profile</span></Link><Link to="/learn/help" onClick={()=>setOpen(false)} className="learn-nav-item"><CircleHelp size={18}/><span>Help</span></Link><button type="button" onClick={()=>void handleSignOut()} disabled={signingOut} className="learn-nav-item w-full text-left disabled:opacity-60">{signingOut?<Loader2 size={18} className="animate-spin"/>:<LogOut size={18}/>}<span>{signingOut?"Signing out…":"Exit Learning Hub"}</span></button></div>
     </aside>
     {open&&<button className="learn-overlay" aria-label="Close navigation" onClick={()=>setOpen(false)}/>} 
     <div className="learn-main">
       <header className="learn-topbar"><div className="learn-topbar-brand"><Link to="/learn" onClick={()=>setOpen(false)}><img src={logo} alt="Coach Amit Soni" /></Link></div><button className="learn-menu-button" onClick={()=>setOpen(true)} aria-label="Open navigation"><Menu size={20}/></button><nav className="learn-topnav" aria-label="Primary navigation">{primaryNav.map(({label,to,icon:Icon})=><Link key={to} to={to} className={`learn-topnav-item ${isNavActive(to)?"active":""}`}><Icon size={17}/><span>{label}</span></Link>)}</nav><div className="ml-auto flex items-center gap-3"><Link to="/learn/notifications" className="learn-icon-button" aria-label="Notifications"><Bell size={19}/><span className="notification-dot"/></Link><Link to="/learn/profile" className="learn-avatar" aria-label="Profile">AS</Link></div></header>
-      {isAdmin&&<div className="reference-adminbar"><span>Admin</span><Link to="/learn/manage/courses">Course Manager</Link><Link to="/learn/manage/enrolments">Enrolments</Link></div>}
+      {isAdmin&&<div className="reference-adminbar"><span>Admin</span><Link to="/learn/manage/courses">Course Manager</Link><Link to="/learn/manage/enrolments">Enrolments</Link><Link to="/learn/manage/workshops">Workshops</Link></div>}
       <main className="learn-content">{children}</main>
     </div>
   </div>;
