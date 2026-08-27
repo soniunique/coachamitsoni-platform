@@ -52,14 +52,19 @@ function EnrolmentManager() {
   }
 
   async function toggleProgram(student: Student, program: Program) {
-    const key = `${student.id}:${program.id}`; setSavingKey(key); setError(""); setSuccess("");
+    const key = `${student.id}:${program.id}`;
+    setSavingKey(key); setError(""); setSuccess("");
     const currentlyEnrolled = hasAccess(student.id, program.id);
-    if (currentlyEnrolled) {
-      const { error: deleteError } = await supabase.from("program_enrollments").delete().eq("user_id", student.id).eq("program_id", program.id);
-      if (deleteError) setError(deleteError.message); else { setSuccess(`${program.title} access removed for ${student.full_name || student.email}.`); await load(); }
+    const { error: mutationError } = await supabase.rpc("admin_set_program_enrollment", {
+      p_program_id: program.id,
+      p_user_id: student.id,
+      p_enrolled: !currentlyEnrolled,
+    });
+    if (mutationError) {
+      setError(mutationError.message);
     } else {
-      const { error: insertError } = await supabase.from("program_enrollments").upsert({ user_id: student.id, program_id: program.id, status: "active", enrolled_at: new Date().toISOString(), completed_at: null }, { onConflict: "user_id,program_id" });
-      if (insertError) setError(insertError.message); else { setSuccess(`${program.title} access granted to ${student.full_name || student.email}.`); await load(); }
+      setSuccess(`${program.title} access ${currentlyEnrolled ? "removed from" : "granted to"} ${student.full_name || student.email}.`);
+      await load();
     }
     setSavingKey(null);
   }
