@@ -6,6 +6,11 @@ alter table public.workshops
 
 create index if not exists workshops_starts_at_idx on public.workshops(starts_at);
 
+drop policy if exists workshops_admin_select on public.workshops;
+create policy workshops_admin_select on public.workshops
+  for select to authenticated
+  using (public.is_admin());
+
 drop policy if exists workshops_admin_insert on public.workshops;
 create policy workshops_admin_insert on public.workshops
   for insert to authenticated
