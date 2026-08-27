@@ -10,7 +10,7 @@ type Course = { id: string; slug: string; title: string; description: string | n
 type Enrollment = { course_id: string; status: string };
 type Card = Course & { totalLessons: number; completedLessons: number; progress: number; enrollmentStatus: string };
 type FeedPost = { id: string; title: string | null; body: string; created_at: string };
-type Workshop = { id: string; title: string; description: string | null; starts_at: string | null; ends_at: string | null; format: string | null; meeting_url: string | null };
+type Workshop = { id: string; title: string; description: string | null; starts_at: string | null; ends_at: string | null; format: string | null };
 
 function dateLabel(value: string | null) { return value ? new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(value)) : "Date to be announced"; }
 function timeLabel(value: string | null) { return value ? new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(value)) : "Time to be announced"; }
@@ -31,10 +31,13 @@ function LearnHome() {
       const [enrollmentResult, feedResult, workshopResult] = await Promise.all([
         supabase.from("enrollments").select("course_id, status").eq("user_id", user.id).in("status", ["active", "completed"]),
         supabase.from("feed_posts").select("id,title,body,created_at").order("created_at", { ascending: false }).limit(5),
-        supabase.from("workshops").select("id,title,description,starts_at,ends_at,format,meeting_url").eq("status", "upcoming").order("starts_at", { ascending: true }).limit(3),
+        // meeting_url is not part of the current LMS workshop schema; links can be added
+        // when that field is introduced rather than making the whole Feed query fail.
+        supabase.from("workshops").select("id,title,description,starts_at,ends_at,format").eq("status", "upcoming").order("starts_at", { ascending: true }).limit(3),
       ]);
       if (feedResult.error) setError(feedResult.error.message);
-      if (workshopResult.error && !error) setError(workshopResult.error.message);
+      if (workshopResult.error) setError(workshopResult.error.message);
+      if (enrollmentResult.error) setError(enrollmentResult.error.message);
       if (!mounted) return;
       setPosts((feedResult.data ?? []) as FeedPost[]); setWorkshops((workshopResult.data ?? []) as Workshop[]);
       const rows = (enrollmentResult.data ?? []) as Enrollment[];
@@ -42,13 +45,14 @@ function LearnHome() {
       if (!courseIds.length) { setCourses([]); setLoading(false); return; }
       const { data: courseRows, error: courseError } = await supabase.from("courses").select("id, slug, title, description, thumbnail_url").in("id", courseIds).eq("status", "published");
       if (courseError) { if (mounted) { setError(courseError.message); setLoading(false); } return; }
-      const { data: modules } = await supabase.from("course_modules").select("id, course_id").in("course_id", courseIds);
+      const { data: modules, error: moduleError } = await supabase.from("course_modules").select("id, course_id").in("course_id", courseIds);
+      if (moduleError) { if (mounted) { setError(moduleError.message); setLoading(false); } return; }
       const moduleRows = (modules ?? []) as Array<{ id: string; course_id: string }>;
       const moduleIds = moduleRows.map((module) => module.id);
       let lessonRows: Array<{ id: string; module_id: string }> = [];
-      if (moduleIds.length) { const { data } = await supabase.from("course_lessons").select("id, module_id").in("module_id", moduleIds); lessonRows = (data ?? []) as Array<{ id: string; module_id: string }>; }
+      if (moduleIds.length) { const { data, error: lessonError } = await supabase.from("course_lessons").select("id, module_id").in("module_id", moduleIds); if (lessonError) { if (mounted) { setError(lessonError.message); setLoading(false); } return; } lessonRows = (data ?? []) as Array<{ id: string; module_id: string }>; }
       let progressRows: Array<{ lesson_id: string; completed: boolean }> = [];
-      if (lessonRows.length) { const { data } = await supabase.from("lesson_progress").select("lesson_id, completed").eq("user_id", user.id).in("lesson_id", lessonRows.map((lesson) => lesson.id)); progressRows = (data ?? []) as Array<{ lesson_id: string; completed: boolean }>; }
+      if (lessonRows.length) { const { data, error: progressError } = await supabase.from("lesson_progress").select("lesson_id, completed").eq("user_id", user.id).in("lesson_id", lessonRows.map((lesson) => lesson.id)); if (progressError) { if (mounted) { setError(progressError.message); setLoading(false); } return; } progressRows = (data ?? []) as Array<{ lesson_id: string; completed: boolean }>; }
       const completed = new Set(progressRows.filter((row) => row.completed).map((row) => row.lesson_id));
       const moduleCourse = new Map(moduleRows.map((module) => [module.id, module.course_id]));
       const totals = new Map<string, number>(); const done = new Map<string, number>();
