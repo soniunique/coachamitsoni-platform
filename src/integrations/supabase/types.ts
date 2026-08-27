@@ -30,6 +30,7 @@ export type Database = {
       admin_enroll_student: { Args: { p_course_id: string; p_user_id: string }; Returns: Tables<"enrollments"> };
       admin_unenroll_student: { Args: { p_course_id: string; p_user_id: string }; Returns: Tables<"enrollments"> };
       admin_set_course_enrollment: { Args: { p_course_id: string; p_user_id: string; p_enrolled: boolean }; Returns: Tables<"enrollments"> };
+      admin_set_program_enrollment: { Args: { p_program_id: string; p_user_id: string; p_enrolled: boolean }; Returns: Tables<"program_enrollments"> };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
