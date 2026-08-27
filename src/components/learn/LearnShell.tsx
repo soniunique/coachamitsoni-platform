@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { Bell, BookOpen, CircleHelp, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare, UserCheck, UserRound, Users, X } from "lucide-react";
-import { LearnShell } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
 import { signOut } from "@/lib/auth";
 import logo from "@/assets/amit-logo.png";
