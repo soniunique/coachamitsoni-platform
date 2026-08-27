@@ -150,21 +150,42 @@ for each row execute function public.sync_course_enrollment_progress();
 
 -- Backfill the denormalized enrollment progress for existing enrolments.
 update public.enrollments e
-set progress_percent = calc.progress_percent,
-    status = case when e.status = 'cancelled' then e.status
-                  when calc.progress_percent = 100 then 'completed'
-                  else 'active' end,
-    completed_at = case when e.status = 'cancelled' then null
-                        when calc.progress_percent = 100 then coalesce(e.completed_at, now())
-                        else null end
-from lateral (
-  select case
-    when count(l.id) = 0 then 0::numeric
-    else round((count(*) filter (where lp.completed)::numeric * 100) / count(l.id), 2)
-  end as progress_percent
-  from public.course_modules m
-  join public.course_lessons l on l.module_id = m.id
-  left join public.lesson_progress lp on lp.lesson_id = l.id and lp.user_id = e.user_id
-  where m.course_id = e.course_id
-) calc
+set progress_percent = (
+      select case
+        when count(l.id) = 0 then 0::numeric
+        else round((count(*) filter (where lp.completed)::numeric * 100) / count(l.id), 2)
+      end
+      from public.course_modules m
+      join public.course_lessons l on l.module_id = m.id
+      left join public.lesson_progress lp on lp.lesson_id = l.id and lp.user_id = e.user_id
+      where m.course_id = e.course_id
+    ),
+    status = case
+      when e.status = 'cancelled' then e.status
+      when (
+        select case
+          when count(l.id) = 0 then 0::numeric
+          else round((count(*) filter (where lp.completed)::numeric * 100) / count(l.id), 2)
+        end
+        from public.course_modules m
+        join public.course_lessons l on l.module_id = m.id
+        left join public.lesson_progress lp on lp.lesson_id = l.id and lp.user_id = e.user_id
+        where m.course_id = e.course_id
+      ) = 100 then 'completed'
+      else 'active'
+    end,
+    completed_at = case
+      when e.status = 'cancelled' then null
+      when (
+        select case
+          when count(l.id) = 0 then 0::numeric
+          else round((count(*) filter (where lp.completed)::numeric * 100) / count(l.id), 2)
+        end
+        from public.course_modules m
+        join public.course_lessons l on l.module_id = m.id
+        left join public.lesson_progress lp on lp.lesson_id = l.id and lp.user_id = e.user_id
+        where m.course_id = e.course_id
+      ) = 100 then coalesce(e.completed_at, now())
+      else null
+    end
 where e.status in ('active', 'completed');
