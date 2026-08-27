@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText, Film, Link2, Loader2, LockKeyhole, Menu, PlayCircle, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText, Film, Link2, Loader2, LockKeyhole, Menu, PlayCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { LearnShell } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,7 @@ function CourseDetail() {
   const [modules, setModules] = useState<Module[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [enrolled, setEnrolled] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
@@ -71,11 +72,17 @@ function CourseDetail() {
     const moduleIds = loadedModules.map((m) => m.id);
     const { data: { user } } = await supabase.auth.getUser();
     let currentEnrolled = false;
+    let currentAdmin = false;
     if (user) {
-      const { data: enrollment } = await supabase.from("enrollments").select("id, status").eq("user_id", user.id).eq("course_id", courseData.id).in("status", ["active", "completed"]).maybeSingle();
-      currentEnrolled = Boolean(enrollment);
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      currentAdmin = profile?.role === "admin";
+      if (!currentAdmin) {
+        const { data: enrollment } = await supabase.from("enrollments").select("id, status").eq("user_id", user.id).eq("course_id", courseData.id).in("status", ["active", "completed"]).maybeSingle();
+        currentEnrolled = Boolean(enrollment);
+      }
     }
-    setEnrolled(currentEnrolled);
+    setIsAdmin(currentAdmin);
+    setEnrolled(currentEnrolled || currentAdmin);
     const { data: lessonData, error: lessonError } = await supabase.from("course_lessons").select("id, module_id, title, description, content_url, content_body, content_storage_path, content_type, sort_order, is_preview").in("module_id", moduleIds.length ? moduleIds : ["00000000-0000-0000-0000-000000000000"]).order("sort_order", { ascending: true });
     if (lessonError) { setError(lessonError.message); setLoading(false); return; }
     const loadedLessons = (lessonData ?? []) as Lesson[];
@@ -91,29 +98,37 @@ function CourseDetail() {
 
   useEffect(() => {
     if (!course?.id) return;
-    async function refreshEnrollment() {
+    async function refreshAccess() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setEnrolled(false); setSelectedLessonId(null); setSelectedUrl(null); return; }
+      if (!user) { setIsAdmin(false); setEnrolled(false); setSelectedLessonId(null); setSelectedUrl(null); return; }
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      const admin = profile?.role === "admin";
+      setIsAdmin(admin);
+      if (admin) { setEnrolled(true); return; }
       const { data: enrollment } = await supabase.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", course.id).in("status", ["active", "completed"]).maybeSingle();
       const hasAccess = Boolean(enrollment);
       setEnrolled(hasAccess);
       if (!hasAccess) { setSelectedLessonId(null); setSelectedUrl(null); }
     }
-    const interval = window.setInterval(() => void refreshEnrollment(), 5000);
-    const handleFocus = () => void refreshEnrollment();
-    const handleVisibility = () => { if (document.visibilityState === "visible") void refreshEnrollment(); };
-    window.addEventListener("focus", handleFocus); document.addEventListener("visibilitychange", handleVisibility); void refreshEnrollment();
+    const interval = window.setInterval(() => void refreshAccess(), 5000);
+    const handleFocus = () => void refreshAccess();
+    const handleVisibility = () => { if (document.visibilityState === "visible") void refreshAccess(); };
+    window.addEventListener("focus", handleFocus); document.addEventListener("visibilitychange", handleVisibility); void refreshAccess();
     return () => { window.clearInterval(interval); window.removeEventListener("focus", handleFocus); document.removeEventListener("visibilitychange", handleVisibility); };
   }, [course?.id]);
 
   async function openLesson(lesson: Lesson) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setEnrolled(false); setSelectedLessonId(null); setSelectedUrl(null); setError("Course enrolment is required to open lessons."); return; }
-    const { data: enrollment } = await supabase.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", course?.id ?? "").in("status", ["active", "completed"]).maybeSingle();
-    if (!enrollment) { setEnrolled(false); setSelectedLessonId(null); setSelectedUrl(null); setError("Course enrolment is required to open lessons."); return; }
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    const admin = profile?.role === "admin";
+    if (!admin) {
+      const { data: enrollment } = await supabase.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", course?.id ?? "").in("status", ["active", "completed"]).maybeSingle();
+      if (!enrollment) { setIsAdmin(false); setEnrolled(false); setSelectedLessonId(null); setSelectedUrl(null); setError("Course enrolment is required to open lessons."); return; }
+    }
     const { data: freshLesson, error: freshLessonError } = await supabase.from("course_lessons").select("id, module_id, title, description, content_url, content_body, content_storage_path, content_type, sort_order, is_preview").eq("id", lesson.id).maybeSingle();
-    if (freshLessonError || !freshLesson) { setEnrolled(false); setSelectedLessonId(null); setSelectedUrl(null); setError("This lesson is no longer available to your account."); return; }
-    setEnrolled(true); setSelectedLessonId(freshLesson.id); setSelectedUrl(null); setLoadingLesson(true); setError("");
+    if (freshLessonError || !freshLesson) { setSelectedLessonId(null); setSelectedUrl(null); setError("This lesson is no longer available to your account."); return; }
+    setIsAdmin(admin); setEnrolled(true); setSelectedLessonId(freshLesson.id); setSelectedUrl(null); setLoadingLesson(true); setError("");
     if (freshLesson.content_storage_path) {
       const { data, error: signedError } = await supabase.storage.from("course-content").createSignedUrl(freshLesson.content_storage_path, 60);
       if (signedError) setError(signedError.message); else setSelectedUrl(data?.signedUrl ?? null);
@@ -158,6 +173,7 @@ function CourseDetail() {
     </section>
 
     {!enrolled && <div className="mt-4 flex items-center gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-sm text-amber-100"><LockKeyhole size={17} /><span><strong>Course access required.</strong> An administrator must enrol you before lessons can be opened.</span></div>}
+    {isAdmin && <div className="mt-4 flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm text-cyan-100"><CheckCircle2 size={17} /><span><strong>Course manager access.</strong> Administrators have full access to all course modules and lessons.</span></div>}
     {error && course && <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-sm text-red-200">{error}</div>}
 
     <div className="mt-5 grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -187,7 +203,7 @@ function CourseDetail() {
             </div>
           </section>
 
-          <section className="learn-card p-4 sm:p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={()=>void markComplete()} disabled={!enrolled} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${completed.has(selectedLesson.id)?"border-emerald-400/30 bg-emerald-400/10 text-emerald-200":"border-white/10 bg-white/[.04] text-slate-200 hover:bg-white/[.08]"}`}><Check size={17}/>{completed.has(selectedLesson.id)?"Completed — mark incomplete":"Mark lesson complete"}</button><div className="flex w-full gap-2 sm:w-auto"><button type="button" disabled={!previousLesson||!enrolled} onClick={()=>void moveToLesson(previousLesson)} className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/[.05] disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-[150px]"><ArrowLeft size={16}/><span className="truncate">{previousLesson?previousLesson.title:"Previous"}</span></button><button type="button" disabled={!nextLesson||!enrolled} onClick={()=>void moveToLesson(nextLesson)} className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-[150px]"><span className="truncate">{nextLesson?nextLesson.title:"Course complete"}</span><ArrowRight size={16}/></button></div></div></section>
+          <section className="learn-card p-4 sm:p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={()=>void markComplete()} disabled={!enrolled} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition ${completed.has(selectedLesson.id)?"border-emerald-400/30 bg-emerald-400/10 text-emerald-200":"border-white/10 bg-white/[.04] text-slate-200 hover:bg-white/[.08]"}`}><Check size={17}/>{completed.has(selectedLesson.id)?"Completed — mark incomplete":"Mark lesson complete"}</button><div className="flex w-full gap-2 sm:w-auto"><button type="button" aria-label={previousLesson?`Previous lesson: ${previousLesson.title}`:"Previous lesson"} disabled={!previousLesson||!enrolled} onClick={()=>void moveToLesson(previousLesson)} className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/[.05] disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-[150px]"><ArrowLeft size={16}/><span>Previous</span></button><button type="button" aria-label={nextLesson?`Next lesson: ${nextLesson.title}`:"Next lesson"} disabled={!nextLesson||!enrolled} onClick={()=>void moveToLesson(nextLesson)} className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-[150px]"><span>{nextLesson?"Next":"Course complete"}</span><ArrowRight size={16}/></button></div></div></section>
 
           <div className="flex items-center justify-between px-1 text-xs text-slate-500"><span>{completedCount} of {lessons.length} lessons complete</span>{progressPercent===100&&<span className="inline-flex items-center gap-1.5 text-emerald-400"><CheckCircle2 size={14}/>Course complete</span>}</div>
         </div>}
