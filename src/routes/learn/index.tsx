@@ -11,6 +11,7 @@ type Program = { id: string; title: string };
 type Module = { id: string; course_id: string };
 type Lesson = { id: string; module_id: string };
 type CourseProgress = Course & { total: number; done: number; percent: number };
+type ProgramProgress = Program & { total: number; done: number; percent: number; courseCount: number };
 
 function LearnHome() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -55,6 +56,13 @@ function LearnHome() {
     return { ...course, total: courseLessons.length, done, percent: courseLessons.length ? Math.round(done / courseLessons.length * 100) : 0 };
   }), [courses, modules, lessons, completed]);
 
+  const programProgress = useMemo<ProgramProgress[]>(() => programs.map(program => {
+    const programCourses = progress.filter(course => course.program_id === program.id);
+    const total = programCourses.reduce((sum, course) => sum + course.total, 0);
+    const done = programCourses.reduce((sum, course) => sum + course.done, 0);
+    return { ...program, total, done, courseCount: programCourses.length, percent: total ? Math.round(done / total * 100) : 0 };
+  }), [programs, progress]);
+
   const overall = useMemo(() => {
     const total = progress.reduce((sum, c) => sum + c.total, 0);
     const done = progress.reduce((sum, c) => sum + c.done, 0);
@@ -76,7 +84,7 @@ function LearnHome() {
       {continueCourse ? <div className="learn-card overflow-hidden p-0"><div className="h-1 bg-gradient-to-r from-cyan-400 via-violet-500 to-orange-400"/><div className="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center"><div><div className="text-xs font-semibold uppercase tracking-[.18em] text-cyan-300">Continue learning</div><h2 className="mt-2 text-xl font-bold">{continueCourse.title}</h2><p className="mt-2 text-sm leading-6 text-slate-400">{continueCourse.description || "Continue where you left off."}</p><div className="mt-5 h-2 overflow-hidden rounded-full bg-white/8"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500" style={{ width: `${continueCourse.percent}%` }}/></div><div className="mt-2 text-xs text-slate-500">{continueCourse.percent}% complete · {continueCourse.done} of {continueCourse.total} lessons</div></div><Link to="/learn/courses/$slug" params={{ slug: continueCourse.slug }} className="learn-primary-button">{continueCourse.percent > 0 ? "Continue" : "Start course"} <ArrowUpRight size={15}/></Link></div></div> : <div className="learn-card p-8 text-center"><BookOpen className="mx-auto text-cyan-300" size={32}/><h2 className="mt-4 text-lg font-bold">Your courses will appear here</h2><Link to="/learn/courses" className="learn-secondary-button mt-5">Browse courses <ArrowUpRight size={15}/></Link></div>}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[1.4fr_.6fr]">
-        <div className="learn-card p-6"><div className="flex items-center justify-between"><div><div className="learn-eyebrow">Your learning</div><h2 className="mt-2 text-xl font-bold">Course progress</h2></div><Link to="/learn/courses" className="text-xs text-cyan-300">View all</Link></div><div className="mt-5 space-y-4">{progress.slice(0,4).map(course=><Link key={course.id} to="/learn/courses/$slug" params={{slug:course.slug}} className="learn-feed-item block hover:bg-white/[.03]"><div className="learn-icon-tile"><BookOpen size={17}/></div><div className="min-w-0 flex-1"><div className="font-semibold truncate">{course.title}</div><div className="mt-1 text-xs text-slate-500">{course.done} of {course.total} lessons complete</div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500" style={{width:`${course.percent}%`}}/></div></div><div className="text-sm font-semibold text-cyan-300">{course.percent}%</div></Link>)}{!progress.length&&<p className="text-sm text-slate-500">No courses available yet.</p>}</div></div>
+        <div className="learn-card p-6"><div className="flex items-center justify-between"><div><div className="learn-eyebrow">Your learning</div><h2 className="mt-2 text-xl font-bold">Program progress</h2></div><Link to="/learn/courses" className="text-xs text-cyan-300">View courses</Link></div><div className="mt-5 space-y-4">{programProgress.map(program=><div key={program.id} className="learn-feed-item"><div className="learn-icon-tile"><BookOpen size={17}/></div><div className="min-w-0 flex-1"><div className="font-semibold truncate">{program.title}</div><div className="mt-1 text-xs text-slate-500">{program.courseCount} {program.courseCount === 1 ? "course" : "courses"} · {program.done} of {program.total} lessons complete</div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500" style={{width:`${program.percent}%`}}/></div></div><div className="text-sm font-semibold text-cyan-300">{program.percent}%</div></div>)}{!programProgress.length&&<p className="text-sm text-slate-500">No programs available yet.</p>}</div></div>
         <div className="learn-card p-6"><div className="learn-eyebrow">Need help?</div><h2 className="mt-2 text-xl font-bold">Talk to us</h2><p className="mt-2 text-sm leading-6 text-slate-400">Questions about your learning?</p><Link to="/learn/messages" className="learn-secondary-button mt-5 w-full"><MessageSquare size={15}/> Open messages</Link></div>
       </div>
     </>}
