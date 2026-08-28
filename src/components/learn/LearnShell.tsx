@@ -16,6 +16,7 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -29,15 +30,31 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
       if (!data.user) { await navigate({ to: "/learn/login", replace: true }); return; }
       const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
       if (!mounted) return;
-      setIsAdmin(profile?.role === "admin"); setAuthChecked(true);
+      setIsAdmin(profile?.role === "admin");
+      const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", data.user.id).is("read_at", null);
+      if (mounted) setUnreadNotifications(count || 0);
+      setAuthChecked(true);
     }
     void checkSession();
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted || session) return;
-      setIsAdmin(false); void navigate({ to: "/learn/login", replace: true });
+      setIsAdmin(false); setUnreadNotifications(0); void navigate({ to: "/learn/login", replace: true });
     });
     return () => { mounted = false; authListener.subscription.unsubscribe(); };
   }, [navigate]);
+
+  useEffect(() => {
+    if (!authChecked) return;
+    let mounted = true;
+    async function refreshUnread() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !mounted) return;
+      const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).is("read_at", null);
+      if (mounted) setUnreadNotifications(count || 0);
+    }
+    void refreshUnread();
+    return () => { mounted = false; };
+  }, [active, authChecked]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -59,7 +76,7 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
       </nav></div>
       <div className="mt-auto space-y-1 px-3 pb-5"><Link to="/learn/profile" className="learn-nav-item"><UserRound size={18}/><span>Profile</span></Link><Link to="/learn/help" className="learn-nav-item"><CircleHelp size={18}/><span>Help</span></Link><button type="button" onClick={()=>void handleSignOut()} disabled={signingOut} className="learn-nav-item w-full text-left disabled:opacity-60">{signingOut?<Loader2 size={18} className="animate-spin"/>:<LogOut size={18}/>}<span>{signingOut?"Signing out…":"Exit Learning Hub"}</span></button></div>
     </aside>
-    {open&&<button className="learn-overlay lg:hidden" aria-label="Close navigation" onClick={()=>setOpen(false)}/>}<div className="learn-main"><header className="learn-topbar"><button className="learn-menu-button lg:hidden" onClick={()=>setOpen(true)} aria-label="Open navigation"><Menu size={20}/></button><div className="min-w-0"><div className="text-xs font-semibold uppercase tracking-[.16em] text-cyan-300">Coach Amit Soni</div><div className="truncate text-sm font-medium text-slate-300">AI Learning Hub</div></div><div className="ml-auto flex items-center gap-2"><Link to="/learn/notifications" className="learn-icon-button" aria-label="Notifications"><Bell size={18}/><span className="notification-dot"/></Link><Link to="/learn/profile" className="learn-avatar" aria-label="Profile">AS</Link></div></header><main className="learn-content">{children}</main></div>
+    {open&&<button className="learn-overlay lg:hidden" aria-label="Close navigation" onClick={()=>setOpen(false)}/>}<div className="learn-main"><header className="learn-topbar"><button className="learn-menu-button lg:hidden" onClick={()=>setOpen(true)} aria-label="Open navigation"><Menu size={20}/></button><div className="min-w-0"><div className="text-xs font-semibold uppercase tracking-[.16em] text-cyan-300">Coach Amit Soni</div><div className="truncate text-sm font-medium text-slate-300">AI Learning Hub</div></div><div className="ml-auto flex items-center gap-2"><Link to="/learn/notifications" className="learn-icon-button" aria-label="Notifications"> <Bell size={18}/>{unreadNotifications>0&&<span className="notification-dot"/>}</Link><Link to="/learn/profile" className="learn-avatar" aria-label="Profile">AS</Link></div></header><main className="learn-content">{children}</main></div>
   </div>;
 }
 
