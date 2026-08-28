@@ -14,6 +14,7 @@ type Lesson = { id: string; module_id: string };
 function Courses() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -30,11 +31,11 @@ function Courses() {
       if (programError || courseError) { setDbError(programError?.message ?? courseError?.message ?? "Unable to load courses right now."); setLoading(false); return; }
       const loadedCourses = (courseData ?? []) as Course[];
       setPrograms((programData ?? []) as Program[]); setCourses(loadedCourses);
-      if (!loadedCourses.length) { setLessons([]); setCompleted(new Set()); setLoading(false); return; }
+      if (!loadedCourses.length) { setModules([]); setLessons([]); setCompleted(new Set()); setLoading(false); return; }
       const { data: moduleData, error: moduleError } = await supabase.from("course_modules").select("id, course_id").in("course_id", loadedCourses.map(c => c.id));
       if (moduleError) { setDbError(moduleError.message); setLoading(false); return; }
-      const moduleRows = (moduleData ?? []) as Module[];
-      const moduleIds = moduleRows.map(m => m.id);
+      const loadedModules = (moduleData ?? []) as Module[]; setModules(loadedModules);
+      const moduleIds = loadedModules.map(m => m.id);
       const { data: lessonData, error: lessonError } = moduleIds.length ? await supabase.from("course_lessons").select("id, module_id").in("module_id", moduleIds) : { data: [], error: null };
       if (lessonError) { setDbError(lessonError.message); setLoading(false); return; }
       const loadedLessons = (lessonData ?? []) as Lesson[]; setLessons(loadedLessons);
@@ -48,12 +49,10 @@ function Courses() {
 
   const visiblePrograms = useMemo(() => programs.filter(program => courses.some(course => course.program_id === program.id)), [programs, courses]);
   const progressFor = (courseId: string) => {
-    const courseModuleIds = new Set(([] as Module[]));
-    const courseLessons = lessons.filter(lesson => {
-      return courses.some(course => course.id === courseId) && false;
-    });
-    void courseModuleIds; void courseLessons;
-    return { total: 0, done: 0, percent: 0 };
+    const courseModuleIds = new Set(modules.filter(module => module.course_id === courseId).map(module => module.id));
+    const courseLessons = lessons.filter(lesson => courseModuleIds.has(lesson.module_id));
+    const done = courseLessons.filter(lesson => completed.has(lesson.id)).length;
+    return { total: courseLessons.length, done, percent: courseLessons.length ? Math.round((done / courseLessons.length) * 100) : 0 };
   };
 
   return <LearnShell><SectionHeader eyebrow="My learning" title="Programs & Courses" description="Your assigned programs unlock every published course inside them."/>
