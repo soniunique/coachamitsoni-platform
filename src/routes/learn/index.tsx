@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowUpRight, BookOpen, CheckCircle2, Loader2, MessageSquare, Sparkles } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarDays, CheckCircle2, Clock3, ExternalLink, Loader2, MessageSquare, Sparkles, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ type Course = { id: string; slug: string; title: string; description: string | n
 type Program = { id: string; title: string };
 type Module = { id: string; course_id: string };
 type Lesson = { id: string; module_id: string };
+type Workshop = { id: string; title: string; description: string | null; starts_at: string | null; ends_at: string | null; format: string | null; status: string; meeting_url: string | null };
 type CourseProgress = Course & { total: number; done: number; percent: number };
 type ProgramProgress = Program & { total: number; done: number; percent: number; courseCount: number };
 
@@ -19,6 +20,8 @@ function LearnHome() {
   const [modules, setModules] = useState<Module[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
+  const [workshops, setWorkshops] = useState<Workshop[]>([]);
+  const [registered, setRegistered] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState("");
 
@@ -26,13 +29,15 @@ function LearnHome() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setDbError("Please sign in to continue."); setLoading(false); return; }
-      const [{ data: programData, error: programError }, { data: courseData, error: courseError }] = await Promise.all([
+      const [{ data: programData, error: programError }, { data: courseData, error: courseError }, { data: workshopData, error: workshopError }, { data: registrationData, error: registrationError }] = await Promise.all([
         supabase.from("programs").select("id,title").order("sort_order", { ascending: true }),
         supabase.from("courses").select("id,slug,title,description,program_id").eq("status", "published").order("created_at", { ascending: false }),
+        supabase.from("workshops").select("id,title,description,starts_at,ends_at,format,status,meeting_url").eq("status", "upcoming").order("starts_at", { ascending: true, nullsFirst: false }).limit(3),
+        supabase.from("workshop_registrations").select("workshop_id,status").eq("user_id", user.id),
       ]);
-      if (programError || courseError) { setDbError(programError?.message ?? courseError?.message ?? "Unable to load your learning data."); setLoading(false); return; }
+      if (programError || courseError || workshopError || registrationError) { setDbError(programError?.message ?? courseError?.message ?? workshopError?.message ?? registrationError?.message ?? "Unable to load your learning data."); setLoading(false); return; }
       const loadedCourses = (courseData ?? []) as Course[];
-      setPrograms((programData ?? []) as Program[]); setCourses(loadedCourses);
+      setPrograms((programData ?? []) as Program[]); setCourses(loadedCourses); setWorkshops((workshopData ?? []) as Workshop[]); setRegistered(new Set((registrationData ?? []).filter(r => r.status !== "cancelled").map(r => r.workshop_id)));
       if (!loadedCourses.length) { setLoading(false); return; }
       const { data: moduleData, error: moduleError } = await supabase.from("course_modules").select("id,course_id").in("course_id", loadedCourses.map(c => c.id));
       if (moduleError) { setDbError(moduleError.message); setLoading(false); return; }
@@ -87,6 +92,8 @@ function LearnHome() {
         <div className="learn-card p-6"><div className="flex items-center justify-between"><div><div className="learn-eyebrow">Your learning</div><h2 className="mt-2 text-xl font-bold">Program progress</h2></div><Link to="/learn/courses" className="text-xs text-cyan-300">View courses</Link></div><div className="mt-5 space-y-4">{programProgress.map(program=><div key={program.id} className="learn-feed-item"><div className="learn-icon-tile"><BookOpen size={17}/></div><div className="min-w-0 flex-1"><div className="font-semibold truncate">{program.title}</div><div className="mt-1 text-xs text-slate-500">{program.courseCount} {program.courseCount === 1 ? "course" : "courses"} · {program.done} of {program.total} lessons complete</div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-500" style={{width:`${program.percent}%`}}/></div></div><div className="text-sm font-semibold text-cyan-300">{program.percent}%</div></div>)}{!programProgress.length&&<p className="text-sm text-slate-500">No programs available yet.</p>}</div></div>
         <div className="learn-card p-6"><div className="learn-eyebrow">Need help?</div><h2 className="mt-2 text-xl font-bold">Talk to us</h2><p className="mt-2 text-sm leading-6 text-slate-400">Questions about your learning?</p><Link to="/learn/messages" className="learn-secondary-button mt-5 w-full"><MessageSquare size={15}/> Open messages</Link></div>
       </div>
+
+      <div className="mt-6 learn-card p-6"><div className="flex items-center justify-between gap-4"><div><div className="learn-eyebrow">Live learning</div><h2 className="mt-2 text-xl font-bold">Upcoming workshops</h2></div><Link to="/learn/workshops" className="text-xs text-cyan-300">View all</Link></div>{!workshops.length?<p className="mt-5 text-sm text-slate-500">No upcoming workshops.</p>:<div className="mt-5 space-y-3">{workshops.map(w=><div key={w.id} className="rounded-xl border border-white/8 bg-white/[.03] p-4"><div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div className="min-w-0"><div className="font-semibold truncate">{w.title}</div>{w.description&&<div className="mt-1 text-xs text-slate-500 line-clamp-1">{w.description}</div>}<div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">{w.starts_at&&<span className="learn-meta"><CalendarDays size={14}/>{new Date(w.starts_at).toLocaleString()}</span>}{w.ends_at&&<span className="learn-meta"><Clock3 size={14}/>{new Date(w.ends_at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</span>}{w.format&&<span className="learn-meta"><Video size={14}/>{w.format}</span>}</div></div><div className="flex shrink-0 flex-wrap gap-2">{registered.has(w.id)?<span className="learn-secondary-button">Registered</span>:<Link to="/learn/workshops" className="learn-primary-button">Register <ArrowUpRight size={14}/></Link>}{registered.has(w.id)&&w.meeting_url&&<a href={w.meeting_url} target="_blank" rel="noreferrer" className="learn-primary-button">Join <ExternalLink size={14}/></a>}</div></div></div>)}</div>}</div>
     </>}
   </LearnShell>;
 }
