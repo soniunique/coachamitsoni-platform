@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Bell, BookOpen, ChevronRight, CircleHelp, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare, UserCheck, UserRound, Users, X } from "lucide-react";
+import { Bell, BookOpen, ChevronRight, CircleHelp, ClipboardList, LayoutDashboard, Loader2, LogOut, Menu, MessageSquare, UserCheck, UserRound, Users, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { signOut } from "@/lib/auth";
 import logo from "@/assets/amit-logo.png";
@@ -54,6 +54,7 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
         {isAdmin && <Link to="/learn/manage/courses" onClick={()=>setOpen(false)} className={`learn-nav-item ${active.startsWith("/learn/manage/courses")?"active":""}`}><BookOpen size={18}/><span>Programs & Courses</span></Link>}
         {isAdmin && <Link to="/learn/manage/enrolments" onClick={()=>setOpen(false)} className={`learn-nav-item ${active.startsWith("/learn/manage/enrolments")||active.startsWith("/learn/manage/course-students")?"active":""}`}><UserCheck size={18}/><span>Program Enrolment</span></Link>}
         {isAdmin && <Link to="/learn/manage/workshops" onClick={()=>setOpen(false)} className={`learn-nav-item ${active.startsWith("/learn/manage/workshops")?"active":""}`}><Users size={18}/><span>Manage Workshops</span></Link>}
+        {isAdmin && <Link to="/learn/manage/workshop-registrations" onClick={()=>setOpen(false)} className={`learn-nav-item ${active.startsWith("/learn/manage/workshop-registrations")?"active":""}`}><ClipboardList size={18}/><span>Workshop Registrations</span></Link>}
         {nav.slice(3).map(({label,to,icon:Icon})=>{const isActive=active.startsWith(to);return <Link key={to} to={to} onClick={()=>setOpen(false)} className={`learn-nav-item ${isActive?"active":""}`}><Icon size={18}/><span>{label}</span></Link>})}
       </nav></div>
       <div className="mt-auto space-y-1 px-3 pb-5"><Link to="/learn/profile" className="learn-nav-item"><UserRound size={18}/><span>Profile</span></Link><Link to="/learn/help" className="learn-nav-item"><CircleHelp size={18}/><span>Help</span></Link><button type="button" onClick={()=>void handleSignOut()} disabled={signingOut} className="learn-nav-item w-full text-left disabled:opacity-60">{signingOut?<Loader2 size={18} className="animate-spin"/>:<LogOut size={18}/>}<span>{signingOut?"Signing out…":"Exit Learning Hub"}</span></button></div>
