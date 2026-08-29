@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowUpRight, BookOpen, CalendarDays, CheckCircle2, ExternalLink, Loader2, MessageSquare, Megaphone, Sparkles, Video } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarDays, CheckCircle2, Clock3, ExternalLink, Loader2, MessageSquare, Megaphone, Sparkles, Video } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
