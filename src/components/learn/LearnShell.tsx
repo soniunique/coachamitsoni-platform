@@ -61,25 +61,21 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => { void refreshUnread(); })
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => { void refreshUnread(); })
         .subscribe();
-      interval = window.setInterval(() => { void refreshUnread(); }, 15000);
+      interval = window.setInterval(() => { void refreshUnread(); }, 3000);
     }
     void refreshUnread();
     void subscribe();
-    return () => { mounted = false; if (interval) window.clearInterval(interval); if (channel) void supabase.removeChannel(channel); };
+    const handleFocus = () => { void refreshUnread(); };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+    return () => {
+      mounted = false;
+      if (interval) window.clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+      if (channel) void supabase.removeChannel(channel);
+    };
   }, [authChecked]);
-
-  useEffect(() => {
-    if (!authChecked) return;
-    let mounted = true;
-    async function refreshUnread() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || !mounted) return;
-      const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).is("read_at", null);
-      if (mounted) setUnreadNotifications(count || 0);
-    }
-    void refreshUnread();
-    return () => { mounted = false; };
-  }, [active, authChecked]);
 
   async function handleSignOut() {
     setSigningOut(true);
