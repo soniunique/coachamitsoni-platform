@@ -46,6 +46,31 @@ export function LearnShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!authChecked) return;
     let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let interval: number | undefined;
+    async function refreshUnread() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !mounted) return;
+      const { count } = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", user.id).is("read_at", null);
+      if (mounted) setUnreadNotifications(count || 0);
+    }
+    async function subscribe() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !mounted) return;
+      channel = supabase.channel(`learn-notifications-${user.id}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => { void refreshUnread(); })
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => { void refreshUnread(); })
+        .subscribe();
+      interval = window.setInterval(() => { void refreshUnread(); }, 15000);
+    }
+    void refreshUnread();
+    void subscribe();
+    return () => { mounted = false; if (interval) window.clearInterval(interval); if (channel) void supabase.removeChannel(channel); };
+  }, [authChecked]);
+
+  useEffect(() => {
+    if (!authChecked) return;
+    let mounted = true;
     async function refreshUnread() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !mounted) return;
