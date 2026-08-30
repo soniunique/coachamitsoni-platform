@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, BookOpen, ClipboardCheck, Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,7 +66,7 @@ function CourseContentManager() {
     {success && <div className="learn-card mb-5 border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">{success}</div>}
     <div className="learn-card mb-6 flex flex-wrap items-center justify-between gap-3 p-4">
       <div><div className="text-xs uppercase tracking-[.16em] text-slate-500">Course content</div><div className="mt-1 text-sm text-slate-300">{modules.length} module{modules.length === 1 ? "" : "s"} configured</div></div>
-      <Link to="/learn/manage/course-content/$courseId" params={{ courseId }} className="learn-secondary-button">Open lesson editor</Link>
+      <div className="flex flex-wrap gap-2"><Link to="/learn/manage/assessment/$courseId" params={{ courseId }} className="learn-secondary-button"><ClipboardCheck size={16}/>Assessment</Link><Link to="/learn/manage/course-content/$courseId" params={{ courseId }} className="learn-secondary-button">Open lesson editor</Link></div>
     </div>
     <form onSubmit={addModule} className="learn-card mb-6 space-y-5 p-6">
       <div><div className="learn-eyebrow">New module</div><h2 className="mt-1 text-xl font-bold">Add a module</h2></div>
