@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/amit-logo.png";
 
@@ -24,7 +24,7 @@ export function AuthCard({ mode }: { mode: "login" | "register" }) {
       } else {
         const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
         if (error) throw error;
-        setMessage("Account created. If email confirmation is enabled, check your inbox before signing in.");
+        setMessage("Your account has been created successfully. If email verification is required, please complete it before signing in.");
       }
     } catch (err) { setError(err instanceof Error ? err.message : "Unable to complete this request."); }
     finally { setBusy(false); }
@@ -44,7 +44,6 @@ export function AuthCard({ mode }: { mode: "login" | "register" }) {
         <button className="learn-primary-button w-full" disabled={busy}>{busy ? <Loader2 size={17} className="animate-spin"/> : <ShieldCheck size={17}/>} {mode === "login" ? "Sign in" : "Create account"}</button>
       </form>
       {mode === "login" ? <div className="mt-6 flex justify-between text-sm"><Link className="text-cyan-300 hover:text-cyan-200" to="/learn/register">Create account</Link><Link className="text-slate-400 hover:text-white" to="/learn/forgot-password">Forgot password?</Link></div> : <div className="mt-6 text-center text-sm text-slate-400">Already registered? <Link className="text-cyan-300" to="/learn/login">Sign in</Link></div>}
-      <div className="mt-7 flex items-center justify-center gap-2 text-[11px] text-slate-500"><ShieldCheck size={14}/> Secure account access powered by Supabase</div>
     </div>
   </div>;
 }
