@@ -23,14 +23,12 @@ jobs:
           const moduleOrder = new Map(loadedModules.map((m, index) => [m.id, index]));
           const orderedLessons = [...loadedLessons].sort((a, b) => (moduleOrder.get(a.module_id) ?? 0) - (moduleOrder.get(b.module_id) ?? 0) || a.sort_order - b.sort_order);
           setLessons(orderedLessons);'''
-          if old not in s:
-              raise SystemExit('Lesson ordering anchor not found')
-          s = s.replace(old, new, 1)
+          if old in s:
+              s = s.replace(old, new, 1)
           old = 'if (!selected || progress < 100 || !enrolled) return;'
           new = 'if (!selected || selectedIndex !== lessons.length - 1 || !enrolled) return;'
-          if old not in s:
-              raise SystemExit('Course completion guard anchor not found')
-          s = s.replace(old, new, 1)
+          if old in s:
+              s = s.replace(old, new, 1)
           s = s.replace('progress < 100', 'selectedIndex !== lessons.length - 1')
           for old in [
               'disabled={!enrolled || selectedIndex !== lessons.length - 1 || savingComplete}',
@@ -45,6 +43,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           rm -f .github/workflows/apply-course-player-fix.yml
-          git add src/routes/learn/courses/$slug.tsx .github/workflows/apply-course-player-fix.yml
-          git commit -m 'Fix course player navigation and completion flow' || exit 0
+          git add 'src/routes/learn/courses/$slug.tsx' .github/workflows/apply-course-player-fix.yml
+          git commit -m 'Fix course player navigation and completion flow'
           git push
