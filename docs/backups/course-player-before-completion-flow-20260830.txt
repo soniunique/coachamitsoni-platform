@@ -1,0 +1,1 @@
+Backup marker for course-player completion-flow work. The pre-change course-player source is preserved in Git history at the parent commit immediately before this change. This marker is intentionally non-functional and exists only to document the rollback point.
