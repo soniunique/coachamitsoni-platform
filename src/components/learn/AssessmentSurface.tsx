@@ -1,13 +1,22 @@
-import { CheckCircle2, CircleAlert, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { BarChart3, CheckCircle2, CircleAlert, Clock3, Loader2, Plus, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 type Option = { id: string; text: string };
-type Question = { id?: string; prompt: string; options: Option[]; correct_option: string; points: number; sort_order: number };
-type Assessment = { id: string; course_id: string; title: string; instructions: string | null; passing_percentage: number; max_attempts: number | null };
-type StudentPayload = { enabled: boolean; assessment?: Assessment; questions?: Question[] };
+type Question = { id?: string; prompt: string; options: Option[]; correct_option: string; points: number; sort_order: number; explanation?: string | null };
+type Assessment = {
+  id: string; course_id: string; title: string; instructions: string | null; passing_percentage: number; max_attempts: number | null;
+  question_count: number | null; time_limit_minutes: number | null; randomize_questions: boolean; randomize_options: boolean;
+  feedback_mode: "score_only" | "incorrect_only" | "full_review"; require_completion: boolean; integrity_ack_required: boolean;
+};
+type StudentPayload = { enabled: boolean; assessment?: Assessment; completion?: { lessons_total: number; lessons_completed: number; percentage: number; can_start: boolean }; latest_attempt?: { score: number; passed: boolean; attempt_number: number } | null };
+type SessionQuestion = { id: string; prompt: string; options: Option[]; points: number; sort_order: number };
+type SessionPayload = { session_id: string; attempt_number: number; started_at: string; expires_at: string | null; time_limit_minutes: number | null; assessment: Pick<Assessment, "id" | "title" | "passing_percentage" | "feedback_mode">; questions: SessionQuestion[]; resumed?: boolean; already_passed?: boolean };
+type ReviewItem = { question_id: string; correct: boolean; selected_option: string | null; correct_option: string | null; explanation: string | null };
+type Result = { attempt_number: number; score: number; passed: boolean; passing_percentage: number; timed_out?: boolean; feedback?: string | null; review?: ReviewItem[] };
+type Analytics = { attempts: number; passed: number; pass_rate: number; average_score: number };
 
-const blankQuestion = (): Question => ({ prompt: "", options: [{ id: "a", text: "" }, { id: "b", text: "" }, { id: "c", text: "" }, { id: "d", text: "" }], correct_option: "a", points: 1, sort_order: 0 });
+const blankQuestion = (): Question => ({ prompt: "", options: [{ id: "a", text: "" }, { id: "b", text: "" }, { id: "c", text: "" }, { id: "d", text: "" }], correct_option: "a", points: 1, sort_order: 0, explanation: "" });
 
 export function AssessmentSurface({ pathname, isAdmin }: { pathname: string; isAdmin: boolean }) {
   if (pathname.startsWith("/learn/manage/course-content/")) {
@@ -30,25 +39,43 @@ function AdminAssessment({ courseId }: { courseId: string }) {
   const [instructions, setInstructions] = useState("");
   const [passing, setPassing] = useState(80);
   const [maxAttempts, setMaxAttempts] = useState(0);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [timeLimit, setTimeLimit] = useState(0);
+  const [randomizeQuestions, setRandomizeQuestions] = useState(true);
+  const [randomizeOptions, setRandomizeOptions] = useState(true);
+  const [feedbackMode, setFeedbackMode] = useState<Assessment["feedback_mode"]>("score_only");
+  const [requireCompletion, setRequireCompletion] = useState(true);
+  const [integrityAck, setIntegrityAck] = useState(true);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
 
   async function load() {
     setLoading(true); setError("");
     const [{ data: course, error: ce }, { data: a, error: ae }] = await Promise.all([
       supabase.from("courses").select("title,assessment_enabled,assessment_required").eq("id", courseId).maybeSingle(),
-      supabase.from("course_assessments").select("id,course_id,title,instructions,passing_percentage,max_attempts").eq("course_id", courseId).maybeSingle(),
+      supabase.from("course_assessments").select("id,course_id,title,instructions,passing_percentage,max_attempts,question_count,time_limit_minutes,randomize_questions,randomize_options,feedback_mode,require_completion,integrity_ack_required").eq("course_id", courseId).maybeSingle(),
     ]);
     if (ce || ae) { setError((ce || ae)?.message || "Unable to load assessment."); setLoading(false); return; }
     setCourseTitle(course?.title || "Course"); setEnabled(Boolean(course?.assessment_enabled)); setRequired(Boolean(course?.assessment_required));
     if (a) {
-      setAssessment(a as Assessment); setTitle(a.title); setInstructions(a.instructions || ""); setPassing(Number(a.passing_percentage)); setMaxAttempts(a.max_attempts || 0);
-      const { data: qs, error: qe } = await supabase.from("assessment_questions").select("id,prompt,options,correct_option,points,sort_order").eq("assessment_id", a.id).order("sort_order");
+      const next = a as Assessment;
+      setAssessment(next); setTitle(next.title); setInstructions(next.instructions || ""); setPassing(Number(next.passing_percentage)); setMaxAttempts(next.max_attempts || 0);
+      setQuestionCount(next.question_count || 0); setTimeLimit(next.time_limit_minutes || 0); setRandomizeQuestions(next.randomize_questions !== false); setRandomizeOptions(next.randomize_options !== false);
+      setFeedbackMode(next.feedback_mode || "score_only"); setRequireCompletion(next.require_completion !== false); setIntegrityAck(next.integrity_ack_required !== false);
+      const [{ data: qs, error: qe }, { data: stats }] = await Promise.all([
+        supabase.from("assessment_questions").select("id,prompt,options,correct_option,points,sort_order,explanation").eq("assessment_id", next.id).order("sort_order"),
+        supabase.rpc("get_assessment_analytics", { p_assessment_id: next.id }),
+      ]);
       if (qe) setError(qe.message); else setQuestions((qs || []) as Question[]);
-    } else { setAssessment(null); setQuestions([]); setTitle("Course Assessment"); setInstructions(""); setPassing(80); setMaxAttempts(0); }
+      if (stats) setAnalytics(stats as Analytics);
+    } else {
+      setAssessment(null); setQuestions([]); setTitle("Course Assessment"); setInstructions(""); setPassing(80); setMaxAttempts(0); setQuestionCount(0); setTimeLimit(0);
+      setRandomizeQuestions(true); setRandomizeOptions(true); setFeedbackMode("score_only"); setRequireCompletion(true); setIntegrityAck(true); setAnalytics(null);
+    }
     setLoading(false);
   }
   useEffect(() => { void load(); }, [courseId]);
@@ -58,23 +85,30 @@ function AdminAssessment({ courseId }: { courseId: string }) {
     if (!title.trim()) { setError("Assessment title is required."); setSaving(false); return; }
     if (passing < 1 || passing > 100) { setError("Passing percentage must be between 1 and 100."); setSaving(false); return; }
     if (required && !enabled) { setError("A required assessment must be enabled."); setSaving(false); return; }
+    if (questionCount < 0 || timeLimit < 0 || maxAttempts < 0) { setError("Assessment limits cannot be negative."); setSaving(false); return; }
+    if (questions.length === 0 && enabled) { setError("Add at least one question before enabling the assessment."); setSaving(false); return; }
     for (const [i, q] of questions.entries()) {
-      const filledOptions = q.options.filter(o => o.text.trim());
+      const filled = q.options.filter(o => o.text.trim());
       if (!q.prompt.trim()) { setError(`Question ${i + 1}: Please enter the question text.`); setSaving(false); return; }
-      if (filledOptions.length < 2) { setError(`Question ${i + 1}: Please enter at least two answer options.`); setSaving(false); return; }
-      if (!filledOptions.some(o => o.id === q.correct_option)) { setError(`Question ${i + 1}: Please select a correct answer from the completed options.`); setSaving(false); return; }
+      if (filled.length < 2) { setError(`Question ${i + 1}: Please enter at least two answer options.`); setSaving(false); return; }
+      if (!filled.some(o => o.id === q.correct_option)) { setError(`Question ${i + 1}: Please select a correct answer from the completed options.`); setSaving(false); return; }
     }
-    const values = { course_id: courseId, title: title.trim(), instructions: instructions.trim() || null, passing_percentage: passing, max_attempts: maxAttempts > 0 ? maxAttempts : null };
+    const values = {
+      course_id: courseId, title: title.trim(), instructions: instructions.trim() || null, passing_percentage: passing,
+      max_attempts: maxAttempts > 0 ? maxAttempts : null, question_count: questionCount > 0 ? questionCount : null,
+      time_limit_minutes: timeLimit > 0 ? timeLimit : null, randomize_questions: randomizeQuestions, randomize_options: randomizeOptions,
+      feedback_mode: feedbackMode, require_completion: requireCompletion, integrity_ack_required: integrityAck,
+    };
     const { data: saved, error: ae } = assessment
-      ? await supabase.from("course_assessments").update(values).eq("id", assessment.id).select("id,course_id,title,instructions,passing_percentage,max_attempts").single()
-      : await supabase.from("course_assessments").insert(values).select("id,course_id,title,instructions,passing_percentage,max_attempts").single();
+      ? await supabase.from("course_assessments").update(values).eq("id", assessment.id).select("id,course_id,title,instructions,passing_percentage,max_attempts,question_count,time_limit_minutes,randomize_questions,randomize_options,feedback_mode,require_completion,integrity_ack_required").single()
+      : await supabase.from("course_assessments").insert(values).select("id,course_id,title,instructions,passing_percentage,max_attempts,question_count,time_limit_minutes,randomize_questions,randomize_options,feedback_mode,require_completion,integrity_ack_required").single();
     if (ae || !saved) { setError(ae?.message || "Unable to save assessment."); setSaving(false); return; }
     const { error: ce } = await supabase.from("courses").update({ assessment_enabled: enabled, assessment_required: required }).eq("id", courseId);
     if (ce) { setError(ce.message); setSaving(false); return; }
     const { error: de } = await supabase.from("assessment_questions").delete().eq("assessment_id", saved.id);
     if (de) { setError(de.message); setSaving(false); return; }
-    if (questions.length) {
-      const rows = questions.map((q, i) => ({ assessment_id: saved.id, prompt: q.prompt.trim(), options: q.options.filter(o => o.text.trim()).map(o => ({ id: o.id, text: o.text.trim() })), correct_option: q.correct_option, points: Math.max(1, Number(q.points) || 1), sort_order: i }));
+    const rows = questions.map((q, i) => ({ assessment_id: saved.id, prompt: q.prompt.trim(), options: q.options.filter(o => o.text.trim()).map(o => ({ id: o.id, text: o.text.trim() })), correct_option: q.correct_option, points: Math.max(1, Number(q.points) || 1), sort_order: i, explanation: q.explanation?.trim() || null }));
+    if (rows.length) {
       const { error: qe } = await supabase.from("assessment_questions").insert(rows);
       if (qe) { setError(qe.message); setSaving(false); return; }
     }
@@ -93,68 +127,132 @@ function AdminAssessment({ courseId }: { courseId: string }) {
   if (loading) return <div className="learn-card mt-6 p-6 text-slate-400"><Loader2 className="mr-2 inline animate-spin" size={17}/>Loading assessment settings...</div>;
   return <section className="learn-card mt-6 p-6">
     <div className="flex flex-wrap items-start justify-between gap-4">
-      <div><div className="learn-eyebrow">Assessment</div><h2 className="mt-1 text-xl font-bold">{courseTitle} — Course Assessment</h2><p className="mt-1 text-sm text-slate-400">Optional by default. When marked required, students must pass it before certificate eligibility is granted.</p></div>
+      <div><div className="learn-eyebrow">Assessment</div><h2 className="mt-1 text-xl font-bold">{courseTitle} — Course Assessment</h2><p className="mt-1 text-sm text-slate-400">Configure assessment integrity, accessibility, feedback, attempts and certificate eligibility.</p></div>
       <button type="button" onClick={() => void save()} disabled={saving} className="learn-primary-button">{saving ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} {saving ? "Saving..." : "Save assessment"}</button>
     </div>
-    {error && <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
-    {message && <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">{message}</div>}
-    <div className="mt-6 grid gap-5 md:grid-cols-2">
-      <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm"><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)}/><span><strong>Enable assessment</strong><span className="block text-xs text-slate-500">Students can attempt the assessment.</span></span></label>
-      <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm"><input type="checkbox" checked={required} onChange={e => setRequired(e.target.checked)}/><span><strong>Required for certificate</strong><span className="block text-xs text-slate-500">Passing the assessment becomes an additional certificate requirement.</span></span></label>
+    {error && <div role="alert" className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</div>}
+    {message && <div role="status" className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">{message}</div>}
+
+    <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm"><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)}/><span><strong>Enable assessment</strong><span className="block text-xs text-slate-500">Students can access the assessment when eligible.</span></span></label>
+      <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm"><input type="checkbox" checked={required} onChange={e => setRequired(e.target.checked)}/><span><strong>Required for certificate</strong><span className="block text-xs text-slate-500">A passing attempt is required in addition to course completion.</span></span></label>
     </div>
-    <div className="mt-5 grid gap-5 md:grid-cols-2"><div><label className="mb-2 block text-sm font-medium">Assessment title</label><input value={title} onChange={e => setTitle(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"/></div><div><label className="mb-2 block text-sm font-medium">Passing percentage</label><input type="number" min="1" max="100" value={passing} onChange={e => setPassing(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"/></div></div>
-    <div className="mt-5 grid gap-5 md:grid-cols-2"><div><label className="mb-2 block text-sm font-medium">Instructions</label><textarea rows={4} value={instructions} onChange={e => setInstructions(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" placeholder="Complete all questions and submit your answers."/></div><div><label className="mb-2 block text-sm font-medium">Maximum attempts</label><input type="number" min="0" value={maxAttempts} onChange={e => setMaxAttempts(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"/><p className="mt-2 text-xs text-slate-500">0 means unlimited attempts.</p></div></div>
-    <div className="mt-7 border-t border-white/10 pt-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">Questions</h3><p className="text-xs text-slate-500">Multiple-choice questions are graded automatically. Enter at least two options; up to four may be used.</p></div><button type="button" onClick={addQuestion} className="learn-secondary-button"><Plus size={15}/>Add question</button></div>
-      <div className="mt-4 space-y-4">{questions.map((q, qi) => <div key={q.id || `new-${qi}`} className="rounded-2xl border border-white/10 bg-white/[.03] p-5"><div className="flex items-start justify-between gap-3"><div><div className="text-xs font-semibold uppercase tracking-[.15em] text-slate-500">Question {qi + 1}</div><div className="mt-1 text-xs text-slate-500">Choose the radio button to mark the correct answer.</div></div><button type="button" onClick={() => setQuestions(prev => prev.filter((_, i) => i !== qi))} className="learn-icon-button text-red-300" aria-label="Delete question"><Trash2 size={16}/></button></div><label className="mt-3 block text-sm font-medium">Question text</label><textarea rows={3} value={q.prompt} onChange={e => updateQuestion(qi, { prompt: e.target.value })} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" placeholder="Enter the question..."/><div className="mt-4 grid gap-3 md:grid-cols-2">{q.options.map((o, oi) => <div key={o.id} className="flex items-center gap-3"><input type="radio" name={`correct-${qi}`} checked={q.correct_option === o.id} disabled={!o.text.trim()} onChange={() => updateQuestion(qi, { correct_option: o.id })}/><div className="min-w-0 flex-1"><label className="mb-1 block text-xs font-medium text-slate-400">Option {o.id.toUpperCase()}{q.correct_option === o.id ? " · Correct answer" : ""}</label><input value={o.text} onChange={e => updateOption(qi, oi, e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white" placeholder="Enter answer option..."/></div></div>)}</div><div className="mt-4 w-32"><label className="mb-2 block text-xs text-slate-500">Points</label><input type="number" min="1" value={q.points} onChange={e => updateQuestion(qi, { points: Number(e.target.value) })} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"/></div></div>)}</div>
+
+    <div className="mt-5 grid gap-5 md:grid-cols-2">
+      <div><label className="mb-2 block text-sm font-medium">Assessment title</label><input value={title} onChange={e => setTitle(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"/></div>
+      <div><label className="mb-2 block text-sm font-medium">Passing percentage</label><input type="number" min="1" max="100" value={passing} onChange={e => setPassing(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"/></div>
+    </div>
+    <div className="mt-5 grid gap-5 md:grid-cols-2">
+      <div><label className="mb-2 block text-sm font-medium">Instructions</label><textarea rows={4} value={instructions} onChange={e => setInstructions(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" placeholder="Explain what the learner should do, how the assessment is graded, and what happens after submission."/></div>
+      <div><label className="mb-2 block text-sm font-medium">Maximum attempts</label><input type="number" min="0" value={maxAttempts} onChange={e => setMaxAttempts(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"/><p className="mt-2 text-xs text-slate-500">0 = unlimited attempts. A passed assessment cannot be restarted.</p></div>
+    </div>
+
+    <div className="mt-7 border-t border-white/10 pt-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">Assessment controls</h3><p className="text-xs text-slate-500">Question pools, randomization and feedback are applied server-side when an attempt starts.</p></div></div>
+      <div className="mt-4 grid gap-5 md:grid-cols-3">
+        <div><label className="mb-2 block text-sm font-medium">Questions shown</label><input type="number" min="0" value={questionCount} onChange={e => setQuestionCount(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"/><p className="mt-2 text-xs text-slate-500">0 = use every question. Use a larger bank than the number shown for stronger randomization.</p></div>
+        <div><label className="mb-2 block text-sm font-medium">Time limit (minutes)</label><input type="number" min="0" value={timeLimit} onChange={e => setTimeLimit(Number(e.target.value))} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"/><p className="mt-2 text-xs text-slate-500">0 = no timer. Timed attempts auto-submit at expiry.</p></div>
+        <div><label className="mb-2 block text-sm font-medium">Feedback after submit</label><select value={feedbackMode} onChange={e => setFeedbackMode(e.target.value as Assessment["feedback_mode"])} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"><option value="score_only">Score only</option><option value="incorrect_only">Show incorrect questions</option><option value="full_review">Full review with correct answers</option></select><p className="mt-2 text-xs text-slate-500">Full review is best for formative learning; score-only is safer for higher-stakes assessments.</p></div>
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm"><input type="checkbox" checked={randomizeQuestions} onChange={e => setRandomizeQuestions(e.target.checked)}/><span><strong>Randomize questions</strong><span className="block text-xs text-slate-500">Each attempt receives a server-generated question order.</span></span></label>
+        <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm"><input type="checkbox" checked={randomizeOptions} onChange={e => setRandomizeOptions(e.target.checked)}/><span><strong>Randomize answer options</strong><span className="block text-xs text-slate-500">Reduces answer-position sharing between attempts.</span></span></label>
+        <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm"><input type="checkbox" checked={requireCompletion} onChange={e => setRequireCompletion(e.target.checked)}/><span><strong>Require 100% lesson completion</strong><span className="block text-xs text-slate-500">Students must finish every lesson before starting.</span></span></label>
+        <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm"><input type="checkbox" checked={integrityAck} onChange={e => setIntegrityAck(e.target.checked)}/><span><strong>Require assessment acknowledgement</strong><span className="block text-xs text-slate-500">Student confirms they understand the assessment rules before starting.</span></span></label>
+      </div>
+    </div>
+
+    {analytics && <div className="mt-7 rounded-2xl border border-white/10 bg-white/[.03] p-5"><div className="flex items-center gap-2"><BarChart3 size={17}/><h3 className="font-semibold">Assessment analytics</h3></div><div className="mt-4 grid gap-3 sm:grid-cols-4"><div className="rounded-xl border border-white/10 p-4"><div className="text-xs text-slate-500">Attempts</div><div className="mt-1 text-xl font-bold">{analytics.attempts}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="text-xs text-slate-500">Passed</div><div className="mt-1 text-xl font-bold">{analytics.passed}</div></div><div className="rounded-xl border border-white/10 p-4"><div className="text-xs text-slate-500">Pass rate</div><div className="mt-1 text-xl font-bold">{analytics.pass_rate}%</div></div><div className="rounded-xl border border-white/10 p-4"><div className="text-xs text-slate-500">Average score</div><div className="mt-1 text-xl font-bold">{analytics.average_score}%</div></div></div></div>}
+
+    <div className="mt-7 border-t border-white/10 pt-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">Question bank</h3><p className="text-xs text-slate-500">Write questions against the learning outcomes. Add explanations for high-quality formative feedback.</p></div><button type="button" onClick={addQuestion} className="learn-secondary-button"><Plus size={15}/>Add question</button></div>
+      <div className="mt-4 space-y-4">{questions.map((q, qi) => <div key={q.id || `new-${qi}`} className="rounded-2xl border border-white/10 bg-white/[.03] p-5"><div className="flex items-start justify-between gap-3"><div><div className="text-xs font-semibold uppercase tracking-[.15em] text-slate-500">Question {qi + 1}</div><div className="mt-1 text-xs text-slate-500">Choose one correct answer. Keep distractors plausible and similar in difficulty.</div></div><button type="button" onClick={() => setQuestions(prev => prev.filter((_, i) => i !== qi))} className="learn-icon-button text-red-300" aria-label={`Delete question ${qi + 1}`}><Trash2 size={16}/></button></div><label className="mt-3 block text-sm font-medium">Question text</label><textarea rows={3} value={q.prompt} onChange={e => updateQuestion(qi, { prompt: e.target.value })} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white" placeholder="Enter a clear, outcome-aligned question..."/><fieldset className="mt-4"><legend className="mb-2 text-sm font-medium">Answer options — select the correct answer</legend><div className="grid gap-3 md:grid-cols-2">{q.options.map((o, oi) => { const inputId = `q-${qi}-${o.id}`; return <div key={o.id} className="flex items-center gap-3"><input id={inputId} type="radio" name={`correct-${qi}`} checked={q.correct_option === o.id} disabled={!o.text.trim()} onChange={() => updateQuestion(qi, { correct_option: o.id })}/><div className="min-w-0 flex-1"><label htmlFor={inputId} className="mb-1 block text-xs font-medium text-slate-400">Option {o.id.toUpperCase()}{q.correct_option === o.id ? " · Correct answer" : ""}</label><input aria-label={`Question ${qi + 1} option ${o.id.toUpperCase()}`} value={o.text} onChange={e => updateOption(qi, oi, e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white" placeholder="Enter answer option..."/></div></div>})}</div></fieldset><div className="mt-4 grid gap-4 md:grid-cols-[8rem_1fr]"><div><label className="mb-2 block text-xs text-slate-500">Points</label><input type="number" min="1" value={q.points} onChange={e => updateQuestion(qi, { points: Number(e.target.value) })} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"/></div><div><label className="mb-2 block text-xs text-slate-500">Explanation / feedback</label><textarea rows={2} value={q.explanation || ""} onChange={e => updateQuestion(qi, { explanation: e.target.value })} className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" placeholder="Explain why the correct answer is correct and guide further study..."/></div></div></div>)}</div>
       <div className="mt-5 flex justify-center border-t border-white/10 pt-5"><button type="button" onClick={addQuestion} className="learn-secondary-button"><Plus size={15}/>Add another question</button></div>
     </div>
   </section>;
 }
 
 function StudentAssessment({ slug, isAdmin }: { slug: string; isAdmin: boolean }) {
-  const [courseId, setCourseId] = useState("");
   const [payload, setPayload] = useState<StudentPayload | null>(null);
+  const [session, setSession] = useState<SessionPayload | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [latest, setLatest] = useState<{ score: number; passed: boolean; attempt_number: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ score: number; passed: boolean; attempt_number: number; passing_percentage: number } | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   async function load() {
     setLoading(true); setError("");
     const { data: course, error: ce } = await supabase.from("courses").select("id").eq("slug", slug).eq("status", "published").maybeSingle();
     if (ce || !course) { setLoading(false); return; }
-    setCourseId(course.id);
     const { data, error: re } = await supabase.rpc("get_student_assessment", { p_course_id: course.id });
     if (re) { if (!isAdmin) setError(re.message); setLoading(false); return; }
-    const p = data as StudentPayload; setPayload(p);
-    if (p.enabled && p.assessment) {
-      const { data: attempts } = await supabase.from("assessment_attempts").select("score,passed,attempt_number").eq("assessment_id", p.assessment.id).order("submitted_at", { ascending: false }).limit(1);
-      setLatest((attempts?.[0] as any) || null);
-    }
-    setLoading(false);
+    setPayload(data as StudentPayload); setLoading(false);
   }
   useEffect(() => { void load(); }, [slug]);
 
-  const questionCount = payload?.questions?.length || 0;
-  const answered = useMemo(() => Object.keys(answers).length, [answers]);
-  if (loading || !payload?.enabled || !payload.assessment || !questionCount) return null;
+  const questionCount = session?.questions.length || 0;
+  const answered = useMemo(() => Object.keys(answers).filter(id => answers[id]).length, [answers]);
+  const latest = payload?.latest_attempt;
+  const assessment = payload?.assessment;
 
-  async function submit() {
-    if (answered !== questionCount) { setError(`Please answer all ${questionCount} questions before submitting.`); return; }
-    setSubmitting(true); setError(""); setResult(null);
-    const { data, error: se } = await supabase.rpc("submit_course_assessment", { p_assessment_id: payload.assessment.id, p_answers: answers });
-    if (se) { setError(se.message); setSubmitting(false); return; }
-    const r = data as { score: number; passed: boolean; attempt_number: number; passing_percentage: number };
-    setResult(r); setLatest(r); setAnswers({}); setSubmitting(false);
+  useEffect(() => {
+    if (!session?.expires_at) { setSecondsLeft(null); return; }
+    const tick = () => setSecondsLeft(Math.max(0, Math.floor((new Date(session.expires_at!).getTime() - Date.now()) / 1000)));
+    tick(); const id = window.setInterval(tick, 1000); return () => window.clearInterval(id);
+  }, [session?.expires_at]);
+
+  useEffect(() => {
+    if (secondsLeft === 0 && session && !submitting && !result) void submit(true);
+  }, [secondsLeft, session, submitting, result]);
+
+  function formatTime(total: number | null) {
+    if (total === null) return "Unlimited";
+    const minutes = Math.floor(total / 60); const seconds = total % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
 
-  return <section className="learn-card mt-8 p-6">
-    <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="learn-eyebrow">Course Assessment</div><h2 className="mt-1 text-2xl font-bold">{payload.assessment.title}</h2>{payload.assessment.instructions && <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{payload.assessment.instructions}</p>}</div><div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"><div className="text-xs text-slate-500">Passing score</div><div className="font-bold text-cyan-300">{payload.assessment.passing_percentage}%</div></div></div>
-    {latest && !result && <div className={`mt-5 rounded-xl border p-4 text-sm ${latest.passed ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-200"}`}>{latest.passed ? <CheckCircle2 className="mr-2 inline" size={17}/> : <CircleAlert className="mr-2 inline" size={17}/>}Last attempt: <strong>{latest.score}%</strong> — {latest.passed ? "Passed" : "Not passed"} (attempt {latest.attempt_number}).</div>}
-    {error && <div className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>}
-    {result && <div className={`mt-5 rounded-xl border p-5 ${result.passed ? "border-emerald-500/30 bg-emerald-500/10" : "border-amber-500/30 bg-amber-500/10"}`}><div className="text-lg font-bold">{result.passed ? "Assessment passed" : "Assessment not passed"}</div><p className="mt-1 text-sm text-slate-300">You scored <strong>{result.score}%</strong>. Passing score is {result.passing_percentage}%.</p>{!result.passed && <button type="button" onClick={() => setResult(null)} className="learn-secondary-button mt-4">Try again</button>}</div>}
-    {!result && <><div className="mt-6 space-y-5">{(payload.questions || []).map((q, i) => <div key={q.id} className="rounded-2xl border border-white/10 bg-white/[.03] p-5"><div className="text-sm font-semibold">{i + 1}. {q.prompt}</div><div className="mt-4 grid gap-2">{q.options.map(o => <label key={o.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition ${answers[q.id || ""] === o.id ? "border-cyan-400/60 bg-cyan-400/10 text-white" : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20"}`}><input type="radio" name={`question-${q.id}`} checked={answers[q.id || ""] === o.id} onChange={() => setAnswers(prev => ({ ...prev, [q.id || ""]: o.id }))}/><span>{o.text}</span></label>)}</div></div>)}</div><div className="mt-6 flex items-center justify-between gap-4"><span className="text-xs text-slate-500">{answered} of {questionCount} answered</span><button type="button" onClick={() => void submit()} disabled={submitting} className="learn-primary-button">{submitting ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle2 size={16}/>} {submitting ? "Submitting..." : "Submit assessment"}</button></div></>}
+  async function start() {
+    if (!assessment) return;
+    if (assessment.integrity_ack_required && !acknowledged) { setError("Please confirm the assessment acknowledgement before starting."); return; }
+    setStarting(true); setError("");
+    const { data, error: se } = await supabase.rpc("start_course_assessment", { p_assessment_id: assessment.id });
+    if (se) { setError(se.message); setStarting(false); return; }
+    const s = data as SessionPayload;
+    if (s.already_passed) { setResult({ attempt_number: latest?.attempt_number || 0, score: latest?.score || 0, passed: true, passing_percentage: s.passing_percentage || assessment.passing_percentage }); setStarting(false); return; }
+    setSession(s); setAnswers({}); setResult(null); setStarting(false);
+  }
+
+  async function submit(auto = false) {
+    if (!session || submitting || result) return;
+    if (!auto && answered !== questionCount) { setError(`Please answer all ${questionCount} questions before submitting.`); return; }
+    if (!auto && !window.confirm("Submit this assessment? You will not be able to change your answers after submission.")) return;
+    setSubmitting(true); setError("");
+    const { data, error: se } = await supabase.rpc("submit_course_assessment", { p_session_id: session.session_id, p_answers: answers });
+    if (se) { setError(se.message); setSubmitting(false); return; }
+    setResult(data as Result); setSession(null); setAnswers({}); setSubmitting(false); await load();
+  }
+
+  if (loading) return <div className="learn-card mt-8 p-6 text-slate-400"><Loader2 className="mr-2 inline animate-spin" size={17}/>Loading assessment...</div>;
+  if (!payload?.enabled || !assessment) return null;
+
+  const completion = payload.completion;
+  const passed = latest?.passed || result?.passed;
+  const canStart = completion?.can_start !== false && !passed;
+  const attemptsLabel = assessment.max_attempts ? `${assessment.max_attempts} maximum` : "Unlimited";
+
+  return <section className="learn-card mt-8 p-6" aria-labelledby="assessment-heading">
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="learn-eyebrow">Course Assessment</div><h2 id="assessment-heading" className="mt-1 text-2xl font-bold">{assessment.title}</h2>{assessment.instructions && <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">{assessment.instructions}</p>}</div><div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"><div className="text-xs text-slate-500">Passing score</div><div className="font-bold text-cyan-300">{assessment.passing_percentage}%</div><div className="mt-1 text-xs text-slate-500">Attempts: {attemptsLabel}</div></div></div>
+
+    {error && <div role="alert" className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{error}</div>}
+    {completion && assessment.require_completion && !completion.can_start && <div className="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200"><strong>Assessment locked.</strong> Complete all course lessons first. Progress: {completion.lessons_completed} / {completion.lessons_total} lessons ({completion.percentage}%).</div>}
+    {latest && !session && !result && <div className={`mt-5 rounded-xl border p-4 text-sm ${latest.passed ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-200"}`}>{latest.passed ? <CheckCircle2 className="mr-2 inline" size={17}/> : <CircleAlert className="mr-2 inline" size={17}/>}Latest attempt: <strong>{latest.score}%</strong> — {latest.passed ? "Passed" : "Not passed"} (attempt {latest.attempt_number}).</div>}
+
+    {result && <div className={`mt-5 rounded-2xl border p-5 ${result.passed ? "border-emerald-500/30 bg-emerald-500/10" : "border-amber-500/30 bg-amber-500/10"}`}><div className="flex items-center gap-2 text-lg font-bold">{result.passed ? <CheckCircle2 size={20}/> : <CircleAlert size={20}/>} {result.passed ? "Assessment passed" : "Assessment not passed"}</div><p className="mt-1 text-sm text-slate-300">You scored <strong>{result.score}%</strong>. Passing score is {result.passing_percentage}%. Attempt {result.attempt_number}.</p>{result.timed_out && <p className="mt-2 text-sm text-amber-200">{result.feedback}</p>}{result.review?.length ? <div className="mt-4 space-y-3">{result.review.map((item, i) => <div key={item.question_id} className="rounded-xl border border-white/10 bg-black/10 p-3 text-sm"><div className="font-medium">Question {i + 1}: {item.correct ? "Correct" : "Incorrect"}</div>{item.correct_option && <div className="mt-1 text-slate-400">Correct answer: {item.correct_option}</div>}{item.explanation && <div className="mt-1 text-slate-300">{item.explanation}</div>}</div>)}</div> : null}{!result.passed && canStart && <button type="button" onClick={() => setResult(null)} className="learn-secondary-button mt-4">Try again</button>}</div>}
+
+    {!session && !result && <div className="mt-6 rounded-2xl border border-white/10 bg-white/[.03] p-5"><div className="grid gap-4 sm:grid-cols-3"><div><div className="text-xs text-slate-500">Questions</div><div className="mt-1 font-semibold">{assessment.question_count || "All in bank"}</div></div><div><div className="text-xs text-slate-500">Time limit</div><div className="mt-1 font-semibold">{assessment.time_limit_minutes ? `${assessment.time_limit_minutes} minutes` : "Unlimited"}</div></div><div><div className="text-xs text-slate-500">Randomization</div><div className="mt-1 font-semibold">{assessment.randomize_questions || assessment.randomize_options ? "Enabled" : "Off"}</div></div></div>{assessment.integrity_ack_required && <label className="mt-5 flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm"><input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} className="mt-1"/><span><strong>I understand the assessment rules.</strong><span className="block text-xs leading-5 text-slate-500">I will complete this assessment independently and understand that my submitted attempt is final.</span></span></label>}<button type="button" onClick={() => void start()} disabled={!canStart || starting} className="learn-primary-button mt-5">{starting ? <Loader2 size={16} className="animate-spin"/> : <ShieldCheck size={16}/>} {starting ? "Starting..." : "Start assessment"}</button></div>}
+
+    {session && <div className="mt-6"><div className="sticky top-2 z-10 mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/95 p-4 backdrop-blur"><div className="flex items-center gap-3"><Clock3 size={18}/><div><div className="text-xs text-slate-500">Time remaining</div><div className={`font-bold ${secondsLeft !== null && secondsLeft <= 60 ? "text-red-300" : "text-cyan-300"}`}>{formatTime(secondsLeft)}</div></div></div><div className="text-sm text-slate-400">{answered} of {questionCount} answered · Attempt {session.attempt_number}</div></div><div className="mb-5 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm text-slate-300">Answer every question. Your question and option order may differ from another attempt. {assessment.time_limit_minutes ? "If time expires, the assessment is submitted automatically." : "You can review your answers before submitting."}</div><div className="space-y-5">{session.questions.map((q, i) => <fieldset key={q.id} className="rounded-2xl border border-white/10 bg-white/[.03] p-5"><legend className="px-1 text-sm font-semibold">{i + 1}. {q.prompt}</legend><div className="mt-4 grid gap-2">{q.options.map(o => { const id = `student-${q.id}-${o.id}`; return <label key={o.id} htmlFor={id} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition focus-within:ring-2 focus-within:ring-cyan-400/50 ${answers[q.id] === o.id ? "border-cyan-400/60 bg-cyan-400/10 text-white" : "border-white/10 bg-white/5 text-slate-300 hover:border-white/20"}`}><input id={id} type="radio" name={`question-${q.id}`} value={o.id} checked={answers[q.id] === o.id} onChange={() => setAnswers(prev => ({ ...prev, [q.id]: o.id }))}/><span>{o.text}</span></label>})}</div></fieldset>)}</div><div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-5"><span className="text-xs text-slate-500">{answered} of {questionCount} answered</span><button type="button" onClick={() => void submit(false)} disabled={submitting} className="learn-primary-button">{submitting ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle2 size={16}/>} {submitting ? "Submitting..." : "Submit assessment"}</button></div></div>}
   </section>;
 }
