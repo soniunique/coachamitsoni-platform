@@ -75,5 +75,6 @@ function CourseContentManager() {
       <div className="flex justify-end"><button type="submit" className="learn-primary-button" disabled={saving}>{saving ? <><Loader2 size={17} className="animate-spin"/>Adding...</> : <><Plus size={17}/>Add module</>}</button></div>
     </form>
     <div className="space-y-4">{modules.length === 0 ? <div className="learn-card p-6 text-sm text-slate-400">No modules yet. Add the first module above.</div> : modules.map((module,index)=><article className="learn-card p-6" key={module.id}><div className="flex items-start justify-between gap-4"><div className="flex gap-4"><div className="learn-icon-tile shrink-0"><BookOpen size={19}/></div><div><div className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500">Module {index+1}</div><h3 className="mt-1 text-lg font-bold">{module.title}</h3>{module.description&&<p className="mt-2 text-sm text-slate-400">{module.description}</p>}</div></div><button type="button" className="learn-secondary-button" onClick={()=>void deleteModule(module)}><Trash2 size={15}/>Delete</button></div></article>)}</div>
+    {modules.length > 0 && <div className="mt-5 flex justify-center"><button type="button" onClick={()=>document.getElementById("module-title")?.focus()} className="learn-secondary-button"><Plus size={15}/>Add another module</button></div>}
   </LearnShell>;
 }
