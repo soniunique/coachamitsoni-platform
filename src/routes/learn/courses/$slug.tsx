@@ -60,7 +60,10 @@ function CourseDetail() {
     const ids = loadedModules.map((m) => m.id);
     const { data: ls, error: le } = await supabase.from("course_lessons").select("id,module_id,title,description,content_url,content_body,content_storage_path,content_type,sort_order,is_preview").in("module_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("sort_order");
     if (le) { setError(le.message); setLoading(false); return; }
-    const loadedLessons = (ls || []) as Lesson[]; setLessons(loadedLessons);
+    const loadedLessons = (ls || []) as Lesson[];
+const moduleOrder = new Map(loadedModules.map((m, index) => [m.id, index]));
+const orderedLessons = [...loadedLessons].sort((a, b) => (moduleOrder.get(a.module_id) ?? 0) - (moduleOrder.get(b.module_id) ?? 0) || a.sort_order - b.sort_order);
+setLessons(orderedLessons);
     if (user && loadedLessons.length) {
       const { data: rows } = await supabase.from("lesson_progress").select("lesson_id,completed").eq("user_id", user.id).in("lesson_id", loadedLessons.map((l) => l.id));
       setCompleted(new Set((rows || []).filter((r: { completed: boolean }) => r.completed).map((r: { lesson_id: string }) => r.lesson_id)));
@@ -149,7 +152,7 @@ function CourseDetail() {
   }
 
   async function handleCourseComplete() {
-    if (!selected || progress < 100 || !enrolled) return;
+    if (!selected || selectedIndex !== lessons.length - 1 || !enrolled) return;
     if (!isAdmin && !completed.has(selected.id)) {
       const ok = await saveCompletion(selected.id, true);
       if (!ok) return;
@@ -192,7 +195,7 @@ function CourseDetail() {
             </div>
             <div className="border-t border-white/10 px-4 py-3 sm:px-5"><div className="text-[10px] uppercase tracking-[.14em] text-slate-500">{meta[selected.content_type || ""]?.label || "Lesson"}</div><div className="mt-1 flex items-start justify-between gap-3"><div><h1 className="text-lg font-bold text-white">{selected.title}</h1>{selected.description && <p className="mt-1 text-xs leading-5 text-slate-400">{selected.description}</p>}</div>{completed.has(selected.id) && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300"><Check size={12} />Complete</span>}</div></div>
           </section>
-          <section className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => void saveCompletion(selected.id, !completed.has(selected.id))} disabled={!enrolled || savingComplete} className={`learn-secondary-button ${completed.has(selected.id) ? "border-emerald-400/30 text-emerald-300" : ""}`}><Check size={15} />{savingComplete ? "Saving…" : completed.has(selected.id) ? "Mark incomplete" : "Mark complete"}</button><div className="flex gap-2"><button type="button" disabled={!previous || !enrolled || savingComplete} onClick={() => previous && void openLesson(previous, false)} className="learn-secondary-button disabled:opacity-40"><ArrowLeft size={14} />Previous</button>{next ? <button type="button" disabled={!enrolled || savingComplete} onClick={() => void handleNext()} className="learn-primary-button disabled:opacity-40">Next<ArrowRight size={14} /></button> : <button type="button" disabled={!enrolled || progress < 100 || savingComplete || findingNextCourse} onClick={() => void handleCourseComplete()} className="learn-primary-button disabled:opacity-40">{findingNextCourse ? "Checking…" : "Course complete"}<ArrowRight size={14} /></button>}</div></section>
+          <section className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => void saveCompletion(selected.id, !completed.has(selected.id))} disabled={!enrolled || savingComplete} className={`learn-secondary-button ${completed.has(selected.id) ? "border-emerald-400/30 text-emerald-300" : ""}`}><Check size={15} />{savingComplete ? "Saving…" : completed.has(selected.id) ? "Mark incomplete" : "Mark complete"}</button><div className="flex gap-2"><button type="button" disabled={!previous || !enrolled || savingComplete} onClick={() => previous && void openLesson(previous, false)} className="learn-secondary-button disabled:opacity-40"><ArrowLeft size={14} />Previous</button>{next ? <button type="button" disabled={!enrolled || savingComplete} onClick={() => void handleNext()} className="learn-primary-button disabled:opacity-40">Next<ArrowRight size={14} /></button> : <button type="button" disabled={!enrolled || selectedIndex !== lessons.length - 1 || savingComplete || findingNextCourse} onClick={() => void handleCourseComplete()} className="learn-primary-button disabled:opacity-40">{findingNextCourse ? "Checking…" : "Course complete"}<ArrowRight size={14} /></button>}</div></section>
           <div className="mt-2 text-[10px] text-slate-500">Lesson {selectedIndex + 1} of {lessons.length}</div>
         </main>
         <aside className="hidden lg:block"><div className="learn-card sticky top-4 overflow-hidden">{roadmap}</div></aside>
