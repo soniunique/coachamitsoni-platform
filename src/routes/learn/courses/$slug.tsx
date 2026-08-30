@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText, Film, Link2, Loader2, LockKeyhole, Menu } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { LearnShell } from "@/components/learn/LearnShell";
@@ -26,11 +26,13 @@ function youtubeEmbed(url: string | null) {
 
 function CourseDetail() {
   const { slug } = Route.useParams();
+  const navigate = useNavigate();
   const [course, setCourse] = useState<Course | null>(null), [modules, setModules] = useState<Module[]>([]), [lessons, setLessons] = useState<Lesson[]>([]);
   const [enrolled, setEnrolled] = useState(false), [isAdmin, setIsAdmin] = useState(false), [completed, setCompleted] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null), [selectedUrl, setSelectedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true), [loadingLesson, setLoadingLesson] = useState(false), [savingComplete, setSavingComplete] = useState(false);
   const [error, setError] = useState(""), [mobileOutlineOpen, setMobileOutlineOpen] = useState(false), [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [completionOpen, setCompletionOpen] = useState(false), [nextCourseSlug, setNextCourseSlug] = useState<string | null>(null), [findingNextCourse, setFindingNextCourse] = useState(false);
 
   const selected = lessons.find((l) => l.id === selectedId) ?? null;
   const selectedIndex = selected ? lessons.findIndex((l) => l.id === selected.id) : -1;
@@ -106,11 +108,61 @@ function CourseDetail() {
   }
 
   async function saveCompletion(lessonId: string, value: boolean, userId?: string) {
-    const { data: { user } } = await supabase.auth.getUser(); const uid = userId || user?.id; if (!uid) return;
+    const { data: { user } } = await supabase.auth.getUser(); const uid = userId || user?.id; if (!uid) return false;
     setSavingComplete(true); setError("");
     const { error: pe } = await supabase.from("lesson_progress").upsert({ user_id: uid, lesson_id: lessonId, completed: value, completed_at: value ? new Date().toISOString() : null, updated_at: new Date().toISOString() }, { onConflict: "user_id,lesson_id" });
-    if (pe) setError(pe.message); else setCompleted((prev) => { const n = new Set(prev); value ? n.add(lessonId) : n.delete(lessonId); return n; });
-    setSavingComplete(false);
+    if (pe) { setError(pe.message); setSavingComplete(false); return false; }
+    setCompleted((prev) => { const n = new Set(prev); value ? n.add(lessonId) : n.delete(lessonId); return n; });
+    setSavingComplete(false); return true;
+  }
+
+  async function findNextAvailableCourse() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !course) return null;
+    const { data: enrollments } = await supabase.from("program_enrollments").select("program_id").eq("user_id", user.id).in("status", ["active", "completed"]);
+    const programIds = [...new Set((enrollments || []).map((e: { program_id: string }) => e.program_id))];
+    if (!programIds.length) return null;
+    const { data: courses } = await supabase.from("courses").select("id,slug,title,program_id").eq("status", "published").in("program_id", programIds).order("title");
+    const candidates = (courses || []).filter((c: { id: string }) => c.id !== course.id) as Array<{ id: string; slug: string; title: string; program_id: string }>;
+    if (!candidates.length) return null;
+    const { data: candidateModules } = await supabase.from("course_modules").select("id,course_id").in("course_id", candidates.map((c) => c.id));
+    const moduleIds = (candidateModules || []).map((m: { id: string }) => m.id);
+    if (!moduleIds.length) return candidates[0]?.slug || null;
+    const { data: candidateLessons } = await supabase.from("course_lessons").select("id,module_id").in("module_id", moduleIds);
+    const lessonsByCourse = new Map<string, string[]>();
+    const moduleToCourse = new Map((candidateModules || []).map((m: { id: string; course_id: string }) => [m.id, m.course_id]));
+    for (const l of candidateLessons || []) { const cid = moduleToCourse.get((l as { module_id: string }).module_id); if (cid) lessonsByCourse.set(cid, [...(lessonsByCourse.get(cid) || []), (l as { id: string }).id]); }
+    const allLessonIds = (candidateLessons || []).map((l: { id: string }) => l.id);
+    const { data: progressRows } = allLessonIds.length ? await supabase.from("lesson_progress").select("lesson_id,completed").eq("user_id", user.id).in("lesson_id", allLessonIds) : { data: [] as Array<{ lesson_id: string; completed: boolean }> };
+    const done = new Set((progressRows || []).filter((r: { completed: boolean }) => r.completed).map((r: { lesson_id: string }) => r.lesson_id));
+    const nextIncomplete = candidates.find((c) => { const ids = lessonsByCourse.get(c.id) || []; return ids.length === 0 || ids.some((id) => !done.has(id)); });
+    return nextIncomplete?.slug || null;
+  }
+
+  async function handleNext() {
+    if (!next || !enrolled) return;
+    if (!isAdmin && !completed.has(selected.id)) {
+      const ok = await saveCompletion(selected.id, true);
+      if (!ok) return;
+    }
+    await openLesson(next, false);
+  }
+
+  async function handleCourseComplete() {
+    if (!selected || progress < 100 || !enrolled) return;
+    if (!isAdmin && !completed.has(selected.id)) {
+      const ok = await saveCompletion(selected.id, true);
+      if (!ok) return;
+    }
+    setFindingNextCourse(true); setError("");
+    const nextSlug = await findNextAvailableCourse();
+    setNextCourseSlug(nextSlug); setFindingNextCourse(false); setCompletionOpen(true);
+  }
+
+  function continueAfterCompletion() {
+    setCompletionOpen(false);
+    if (nextCourseSlug) void navigate({ to: "/learn/courses/$slug", params: { slug: nextCourseSlug } });
+    else void navigate({ to: "/learn/my-learning" });
   }
 
   function toggleModule(id: string) { setExpanded((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
@@ -120,7 +172,7 @@ function CourseDetail() {
 
   const roadmap = <>
     <div className="border-b border-white/10 px-4 py-3"><div className="text-[10px] font-bold uppercase tracking-[.16em] text-slate-500">Content</div><div className="mt-1 text-xs text-slate-400">{completedCount} of {lessons.length} complete</div></div>
-    <div className="max-h-[calc(100vh-150px)] overflow-y-auto p-2">{modules.map((m, mi) => { const ml = lessons.filter((l) => l.module_id === m.id); const open = expanded.has(m.id); const done = moduleProgress.get(m.id) || 0; return <div key={m.id} className="mb-1"><button type="button" onClick={() => toggleModule(m.id)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-white/[.04]"><span className="text-slate-500">{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span><span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-200">{mi + 1}. {m.title}</span><span className="text-[10px] text-slate-500">{done}/{ml.length}</span></button>{open && <div className="ml-2 border-l border-white/10 pl-2">{ml.map((l, li) => { const Icon = (meta[l.content_type || ""] || meta.video).icon; const doneLesson = completed.has(l.id); return <button key={l.id} type="button" disabled={!enrolled} onClick={() => void openLesson(l, true)} className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[11px] ${selectedId === l.id ? "bg-cyan-400/10 text-cyan-200" : "text-slate-400 hover:bg-white/[.04]"} ${!enrolled ? "opacity-50" : ""}`}><span className="shrink-0">{doneLesson ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Icon size={14} />}</span><span className="min-w-0 flex-1 truncate">{li + 1}. {l.title}</span></button>; })}</div>}</div>; })}</div>
+    <div className="max-h-[calc(100vh-150px)] overflow-y-auto p-2">{modules.map((m, mi) => { const ml = lessons.filter((l) => l.module_id === m.id); const open = expanded.has(m.id); const done = moduleProgress.get(m.id) || 0; return <div key={m.id} className="mb-1"><button type="button" onClick={() => toggleModule(m.id)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-white/[.04]"><span className="text-slate-500">{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span><span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-200">{mi + 1}. {m.title}</span><span className="text-[10px] text-slate-500">{done}/{ml.length}</span></button>{open && <div className="ml-2 border-l border-white/10 pl-2">{ml.map((l, li) => { const Icon = (meta[l.content_type || ""] || meta.video).icon; const doneLesson = completed.has(l.id); return <button key={l.id} type="button" disabled={!enrolled} onClick={() => void openLesson(l, false)} className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[11px] ${selectedId === l.id ? "bg-cyan-400/10 text-cyan-200" : "text-slate-400 hover:bg-white/[.04]"} ${!enrolled ? "opacity-50" : ""}`}><span className="shrink-0">{doneLesson ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Icon size={14} />}</span><span className="min-w-0 flex-1 truncate">{li + 1}. {l.title}</span></button>; })}</div>}</div>; })}</div>
   </>;
 
   return <LearnShell>
@@ -140,11 +192,13 @@ function CourseDetail() {
             </div>
             <div className="border-t border-white/10 px-4 py-3 sm:px-5"><div className="text-[10px] uppercase tracking-[.14em] text-slate-500">{meta[selected.content_type || ""]?.label || "Lesson"}</div><div className="mt-1 flex items-start justify-between gap-3"><div><h1 className="text-lg font-bold text-white">{selected.title}</h1>{selected.description && <p className="mt-1 text-xs leading-5 text-slate-400">{selected.description}</p>}</div>{completed.has(selected.id) && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300"><Check size={12} />Complete</span>}</div></div>
           </section>
-          <section className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => void saveCompletion(selected.id, !completed.has(selected.id))} disabled={!enrolled || savingComplete} className={`learn-secondary-button ${completed.has(selected.id) ? "border-emerald-400/30 text-emerald-300" : ""}`}><Check size={15} />{savingComplete ? "Saving…" : completed.has(selected.id) ? "Mark incomplete" : "Mark complete"}</button><div className="flex gap-2"><button type="button" disabled={!previous || !enrolled} onClick={() => previous && void openLesson(previous, false)} className="learn-secondary-button disabled:opacity-40"><ArrowLeft size={14} />Previous</button><button type="button" disabled={!next || !enrolled} onClick={() => next && void openLesson(next, false)} className="learn-primary-button disabled:opacity-40">{next ? "Next" : "Course complete"}<ArrowRight size={14} /></button></div></section>
+          <section className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => void saveCompletion(selected.id, !completed.has(selected.id))} disabled={!enrolled || savingComplete} className={`learn-secondary-button ${completed.has(selected.id) ? "border-emerald-400/30 text-emerald-300" : ""}`}><Check size={15} />{savingComplete ? "Saving…" : completed.has(selected.id) ? "Mark incomplete" : "Mark complete"}</button><div className="flex gap-2"><button type="button" disabled={!previous || !enrolled || savingComplete} onClick={() => previous && void openLesson(previous, false)} className="learn-secondary-button disabled:opacity-40"><ArrowLeft size={14} />Previous</button>{next ? <button type="button" disabled={!enrolled || savingComplete} onClick={() => void handleNext()} className="learn-primary-button disabled:opacity-40">Next<ArrowRight size={14} /></button> : <button type="button" disabled={!enrolled || progress < 100 || savingComplete || findingNextCourse} onClick={() => void handleCourseComplete()} className="learn-primary-button disabled:opacity-40">{findingNextCourse ? "Checking…" : "Course complete"}<ArrowRight size={14} /></button>}</div></section>
           <div className="mt-2 text-[10px] text-slate-500">Lesson {selectedIndex + 1} of {lessons.length}</div>
         </main>
         <aside className="hidden lg:block"><div className="learn-card sticky top-4 overflow-hidden">{roadmap}</div></aside>
       </div>
     </>}
+
+    {completionOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="course-complete-title"><div className="learn-card w-full max-w-md p-7 text-center shadow-2xl"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-300"><CheckCircle2 size={30} /></div><h2 id="course-complete-title" className="mt-4 text-2xl font-bold text-white">Congratulations!</h2><p className="mt-2 text-base text-slate-200">You completed this Course</p><p className="mt-2 text-sm text-slate-400">Your progress has been saved successfully.</p><button type="button" onClick={continueAfterCompletion} className="learn-primary-button mx-auto mt-6" autoFocus>OK</button></div></div>}
   </LearnShell>;
 }
