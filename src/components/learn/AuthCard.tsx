@@ -24,7 +24,7 @@ export function AuthCard({ mode }: { mode: "login" | "register" }) {
       } else {
         const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
         if (error) throw error;
-        setMessage("Your account has been created successfully. If email verification is required, please complete it before signing in.");
+        setMessage("Your account has been created successfully. Please verify your email before signing in");
       }
     } catch (err) { setError(err instanceof Error ? err.message : "Unable to complete this request."); }
     finally { setBusy(false); }
