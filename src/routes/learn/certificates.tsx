@@ -86,14 +86,71 @@ function Certificates() {
       return;
     }
     setPrinting(certificate.id);
-    const node = document.getElementById(`certificate-${certificate.id}`);
-    if (!node) { setPrinting(null); return; }
+
+    const escapeHtml = (value: string) => value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
     const popup = window.open("", "_blank", "width=1100,height=800");
     if (!popup) { setError("Please allow pop-ups to print your certificate."); setPrinting(null); return; }
-    popup.document.write(`<!doctype html><html><head><title>Certificate of Completion</title><style>body{margin:0;font-family:Georgia,serif;background:#07111f;color:#fff}.page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px;box-sizing:border-box}.certificate{width:100%;max-width:960px;box-sizing:border-box;border:2px solid #67e8f9;padding:70px;text-align:center;background:linear-gradient(145deg,#0b1830,#111c35)}h1{font-size:48px;margin:10px 0 20px}.name{font-size:38px;font-weight:700;margin:25px 0}.course{font-size:28px;font-weight:700;margin:15px 0}.meta{margin-top:40px;font-size:14px;color:#b6c3d9;display:flex;justify-content:space-between}.seal{font-size:54px;color:#67e8f9}@media print{body{background:#fff;color:#111}.page{padding:0}.certificate{max-width:none;min-height:90vh;background:#fff;border-color:#111}.meta{color:#444}}</style></head><body><div class="page">${node.innerHTML}</div></body></html>`);
+
+    const issuedDate = new Date(certificate.issued_at).toLocaleDateString();
+    const courseTitle = certificate.course?.title || "Course";
+    popup.document.write(`<!doctype html>
+<html>
+<head>
+  <title>Certificate of Completion - ${escapeHtml(courseTitle)}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body { font-family: Georgia, "Times New Roman", serif; background: #e9edf3; color: #172033; }
+    .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px; }
+    .certificate { position: relative; width: 100%; max-width: 1050px; min-height: 680px; padding: 68px 76px; background: #fff; border: 10px solid #172033; outline: 2px solid #67e8f9; outline-offset: -22px; text-align: center; box-shadow: 0 18px 50px rgba(15,23,42,.18); }
+    .eyebrow { margin-top: 8px; font-size: 15px; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; color: #087e96; }
+    .seal { width: 74px; height: 74px; margin: 34px auto 22px; border: 2px solid #087e96; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #087e96; font-size: 38px; }
+    h1 { margin: 0; font-size: 46px; line-height: 1.15; }
+    .subtitle { margin: 22px 0 10px; font-size: 18px; color: #5c6678; }
+    .name { margin: 8px 0 18px; font-size: 40px; font-weight: 700; }
+    .course-label { margin-top: 10px; font-size: 17px; color: #5c6678; }
+    .course { margin-top: 10px; font-size: 30px; font-weight: 700; }
+    .meta { margin-top: 58px; display: flex; justify-content: center; gap: 70px; flex-wrap: wrap; font-family: Arial, sans-serif; font-size: 13px; color: #596579; }
+    .meta strong { display: block; margin-bottom: 5px; color: #172033; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .print-note { margin-top: 28px; font-family: Arial, sans-serif; font-size: 11px; color: #8993a3; }
+    @media print {
+      @page { size: landscape; margin: 0; }
+      body { background: #fff; }
+      .page { min-height: 100vh; padding: 0; }
+      .certificate { max-width: none; width: 100vw; min-height: 100vh; border-width: 8px; outline-offset: -18px; box-shadow: none; }
+      .print-note { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <main class="certificate">
+      <div class="eyebrow">Certificate of Completion</div>
+      <div class="seal">★</div>
+      <h1>Certificate of Completion</h1>
+      <div class="subtitle">This certificate is proudly presented to</div>
+      <div class="name">${escapeHtml(name)}</div>
+      <div class="course-label">for successfully completing</div>
+      <div class="course">${escapeHtml(courseTitle)}</div>
+      <div class="meta">
+        <div><strong>Issued</strong>${escapeHtml(issuedDate)}</div>
+        <div><strong>Certificate No.</strong>${escapeHtml(certificate.certificate_number)}</div>
+      </div>
+      <div class="print-note">Coach Amit Soni · AI Learning Hub</div>
+    </main>
+  </div>
+</body>
+</html>`);
     popup.document.close();
     popup.focus();
-    window.setTimeout(() => { popup.print(); setPrinting(null); }, 250);
+    window.setTimeout(() => { popup.print(); setPrinting(null); }, 350);
   }
 
   return <LearnShell>
