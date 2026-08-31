@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
+import { AssessmentResultsPanel } from "@/components/learn/AssessmentResultsPanel";
 import { AssessmentSurface } from "@/components/learn/AssessmentSurface";
 
 export const Route = createFileRoute("/learn/manage/assessment/$courseId")({ component: AssessmentManager });
@@ -13,5 +14,6 @@ function AssessmentManager() {
     </div>
     <SectionHeader eyebrow="Admin · Assessment" title="Course Assessment" description="Configure the assessment, certificate requirement and multiple-choice questions for this course." />
     <AssessmentSurface pathname={`/learn/manage/course-content/${courseId}`} isAdmin />
+    <AssessmentResultsPanel courseId={courseId} />
   </LearnShell>;
 }
