@@ -78,6 +78,8 @@ function GlobalActionFeedback() {
   useEffect(() => {
     const lastText = new WeakMap<Element, string>();
     const successPattern = /(saved|submitted|updated|created|deleted|sent|enrolled|registered|published|completed|successfully)/i;
+    const actionPattern = /^(save|submit|create|update|delete|send|enroll|register|publish|mark\s+complete)/i;
+    const pending = new WeakMap<HTMLButtonElement, number>();
 
     const showSuccessToast = (element: Element) => {
       const text = element.textContent?.replace(/\s+/g, " ").trim() || "";
@@ -87,13 +89,69 @@ function GlobalActionFeedback() {
       toast.success(text, { duration: 4000 });
     };
 
-    const scan = () => {
-      document.querySelectorAll('[role="status"], [aria-live="polite"], [data-action-feedback="success"]').forEach(showSuccessToast);
+    const hasExplicitSuccess = () => {
+      return Array.from(
+        document.querySelectorAll('[role="status"], [aria-live="polite"], [data-action-feedback="success"], .text-emerald-300'),
+      ).some((element) => successPattern.test(element.textContent?.replace(/\s+/g, " ").trim() || ""));
     };
+
+    const hasVisibleError = () => {
+      return Boolean(
+        document.querySelector('[role="alert"], [aria-live="assertive"], .text-red-300, .text-red-400'),
+      );
+    };
+
+    const genericMessage = (label: string) => {
+      const normalized = label.toLowerCase();
+      if (normalized.startsWith("save")) return "Saved successfully.";
+      if (normalized.startsWith("submit")) return "Submitted successfully.";
+      if (normalized.startsWith("create")) return "Created successfully.";
+      if (normalized.startsWith("update")) return "Updated successfully.";
+      if (normalized.startsWith("delete")) return "Deleted successfully.";
+      if (normalized.startsWith("send")) return "Sent successfully.";
+      if (normalized.startsWith("enroll")) return "Enrolment updated successfully.";
+      if (normalized.startsWith("register")) return "Registered successfully.";
+      if (normalized.startsWith("publish")) return "Published successfully.";
+      return "Action completed successfully.";
+    };
+
+    const onClick = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target.closest("button") : null;
+      if (!(target instanceof HTMLButtonElement)) return;
+      const label = target.textContent?.replace(/\s+/g, " ").trim() || "";
+      if (!actionPattern.test(label)) return;
+
+      const token = window.setTimeout(() => {
+        pending.delete(target);
+        if (hasVisibleError() || hasExplicitSuccess()) return;
+        if (document.body.contains(target) && (target.disabled || /saving|submitting|creating|updating|deleting|sending/i.test(target.textContent || ""))) {
+          pending.set(target, window.setTimeout(() => {
+            pending.delete(target);
+            if (!hasVisibleError() && !hasExplicitSuccess() && !target.disabled) {
+              toast.success(genericMessage(label), { duration: 3500 });
+            }
+          }, 1800));
+          return;
+        }
+        toast.success(genericMessage(label), { duration: 3500 });
+      }, 1800);
+      pending.set(target, token);
+    };
+
+    const scan = () => {
+      document
+        .querySelectorAll('[role="status"], [aria-live="polite"], [data-action-feedback="success"]')
+        .forEach(showSuccessToast);
+    };
+
+    document.addEventListener("click", onClick, true);
     scan();
     const observer = new MutationObserver(scan);
     observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
-    return () => observer.disconnect();
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      observer.disconnect();
+    };
   }, []);
 
   return null;
