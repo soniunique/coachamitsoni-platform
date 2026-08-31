@@ -45,15 +45,17 @@ function Certificates() {
       const programIds = (enrolments || []).map((e) => e.program_id);
       const courseIds = certs.map((c) => c.course_id);
       const nextEligibility: Record<string, Eligibility> = {};
+      const courseDetails: Record<string, { title: string; slug: string }> = {};
 
       if (courseIds.length) {
         const { data: courseRows, error: courseError } = await supabase
           .from("courses")
-          .select("id,program_id,course_modules(course_lessons(id,lesson_progress(user_id,completed)))")
+          .select("id,title,slug,program_id,course_modules(course_lessons(id,lesson_progress(user_id,completed)))")
           .in("id", courseIds);
         if (courseError) { setError(courseError.message); setLoading(false); return; }
 
         for (const course of (courseRows || []) as any[]) {
+          courseDetails[course.id] = { title: course.title, slug: course.slug };
           const enrolled = programIds.includes(course.program_id);
           const lessons = (course.course_modules || []).flatMap((m: any) => m.course_lessons || []);
           const completed = lessons.filter((lesson: any) =>
@@ -65,9 +67,12 @@ function Certificates() {
       }
 
       setEligibility(nextEligibility);
-      // Do not present a certificate at all unless the student currently has
-      // access to the course and has reached the 80% eligibility threshold.
-      setCertificates(certs.filter((c) => nextEligibility[c.course_id]?.enrolled && nextEligibility[c.course_id]?.progress >= 80));
+      // Use the separately fetched course records for display as well as eligibility.
+      // This avoids relying on a nested relationship response that may be null under RLS.
+      const eligibleCerts = certs
+        .filter((c) => nextEligibility[c.course_id]?.enrolled && nextEligibility[c.course_id]?.progress >= 80)
+        .map((c) => ({ ...c, course: courseDetails[c.course_id] || c.course }));
+      setCertificates(eligibleCerts);
       setLoading(false);
     }
     void load();
