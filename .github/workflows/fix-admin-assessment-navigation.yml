@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   fix:
-    if: github.event.head_commit.message != 'fix: add admin assessment navigation'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout feature branch
@@ -20,36 +19,38 @@ jobs:
           fetch-depth: 1
 
       - name: Add Assessment action to every admin course card
-        shell: python
         run: |
+          python3 - <<'PY'
           from pathlib import Path
           import re
 
           path = Path('src/routes/learn/manage/courses.tsx')
           text = path.read_text(encoding='utf-8')
 
-          if 'ClipboardCheck' not in text.split('\n', 3)[1]:
-              text = text.replace(
-                  'import { BookOpen, Layers, Loader2, Pencil, Plus, Trash2, X, BarChart3 } from "lucide-react";',
-                  'import { BookOpen, ClipboardCheck, Layers, Loader2, Pencil, Plus, Trash2, X, BarChart3 } from "lucide-react";'
-              )
+          old_import = 'import { BookOpen, Layers, Loader2, Pencil, Plus, Trash2, X, BarChart3 } from "lucide-react";'
+          new_import = 'import { BookOpen, ClipboardCheck, Layers, Loader2, Pencil, Plus, Trash2, X, BarChart3 } from "lucide-react";'
+          if 'ClipboardCheck' not in text:
+              if old_import not in text:
+                  raise SystemExit('Expected lucide import was not found.')
+              text = text.replace(old_import, new_import, 1)
 
           assessment = '<Link to="/learn/manage/assessment/$courseId" params={{ courseId: course.id }} className="learn-secondary-button"><ClipboardCheck size={16}/>Assessment</Link>'
-
           if 'to="/learn/manage/assessment/$courseId"' not in text:
-              pattern = r'(<Link\\b[^>]*>.*?Progress.*?</Link>)'
-              updated, count = re.subn(pattern, assessment + r'\\1', text, flags=re.S)
+              pattern = r'(<Link\b[^>]*>.*?Progress.*?</Link>)'
+              text, count = re.subn(pattern, assessment + r'\1', text, flags=re.S)
+              print(f'Inserted Assessment links: {count}')
               if count == 0:
                   raise SystemExit('Could not locate the course-card Progress action; no source changes made.')
-              text = updated
 
           text = text.replace('className="flex gap-2"', 'className="flex flex-wrap gap-2"')
           path.write_text(text, encoding='utf-8')
+          PY
 
       - name: Verify source change
         run: |
           grep -q 'to="/learn/manage/assessment/$courseId"' src/routes/learn/manage/courses.tsx
           grep -q 'ClipboardCheck' src/routes/learn/manage/courses.tsx
+          echo 'Assessment navigation verified.'
 
       - name: Commit source change and remove temporary workflow
         run: |
