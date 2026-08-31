@@ -1,0 +1,40 @@
+name: Fix admin course action grid
+
+on:
+  push:
+    branches:
+      - feature/student-assessment-results
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/student-assessment-results
+          fetch-depth: 1
+      - name: Make four admin course actions responsive
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/routes/learn/manage/courses.tsx')
+          text = path.read_text(encoding='utf-8')
+          old = 'className="mt-4 grid grid-cols-3 gap-2"'
+          new = 'className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4"'
+          if old not in text:
+              raise SystemExit('Expected course action grid was not found.')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Verify and commit
+        run: |
+          grep -q 'mt-4 grid grid-cols-2 gap-2 md:grid-cols-4' src/routes/learn/manage/courses.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/learn/manage/courses.tsx
+          git rm .github/workflows/fix-admin-course-action-grid.yml
+          git commit -m "fix: make admin course actions responsive"
+          git push origin HEAD:feature/student-assessment-results
