@@ -76,22 +76,23 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
 function GlobalActionFeedback() {
   useEffect(() => {
-    const shown = new WeakSet<Element>();
+    const lastText = new WeakMap<Element, string>();
+    const successPattern = /(saved|submitted|updated|created|deleted|sent|enrolled|registered|published|completed|successfully)/i;
+
     const showSuccessToast = (element: Element) => {
-      if (shown.has(element)) return;
       const text = element.textContent?.replace(/\s+/g, " ").trim() || "";
-      if (!text) return;
-      if (!/(saved|submitted|updated|created|deleted|sent|enrolled|registered|published|completed|successfully)/i.test(text)) return;
-      shown.add(element);
-      toast.success(text);
+      if (!text || !successPattern.test(text)) return;
+      if (lastText.get(element) === text) return;
+      lastText.set(element, text);
+      toast.success(text, { duration: 4000 });
     };
 
     const scan = () => {
-      document.querySelectorAll('[role="status"]').forEach(showSuccessToast);
+      document.querySelectorAll('[role="status"], [aria-live="polite"], [data-action-feedback="success"]').forEach(showSuccessToast);
     };
     scan();
     const observer = new MutationObserver(scan);
-    observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
     return () => observer.disconnect();
   }, []);
 
@@ -117,7 +118,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap",
@@ -136,7 +137,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <head><HeadContent /></head>
       <body>
         {children}
-        <Toaster />
+        <Toaster position="bottom-center" richColors duration={4000} />
         <GlobalActionFeedback />
         <Scripts />
       </body>
