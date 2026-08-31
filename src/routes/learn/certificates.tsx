@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Award, ArrowLeft, BookOpen, Loader2, Printer } from "lucide-react";
+import { Award, ArrowLeft, BookOpen, Loader2, Printer, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,8 +67,6 @@ function Certificates() {
       }
 
       setEligibility(nextEligibility);
-      // Use the separately fetched course records for display as well as eligibility.
-      // This avoids relying on a nested relationship response that may be null under RLS.
       const eligibleCerts = certs
         .filter((c) => nextEligibility[c.course_id]?.enrolled && nextEligibility[c.course_id]?.progress >= 80)
         .map((c) => ({ ...c, course: courseDetails[c.course_id] || c.course }));
@@ -107,25 +105,33 @@ function Certificates() {
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; }
-    body { font-family: Georgia, "Times New Roman", serif; background: #e9edf3; color: #172033; }
-    .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px; }
-    .certificate { position: relative; width: 100%; max-width: 1050px; min-height: 680px; padding: 68px 76px; background: #fff; border: 10px solid #172033; outline: 2px solid #67e8f9; outline-offset: -22px; text-align: center; box-shadow: 0 18px 50px rgba(15,23,42,.18); }
-    .eyebrow { margin-top: 8px; font-size: 15px; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; color: #087e96; }
-    .seal { width: 74px; height: 74px; margin: 34px auto 22px; border: 2px solid #087e96; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #087e96; font-size: 38px; }
-    h1 { margin: 0; font-size: 46px; line-height: 1.15; }
-    .subtitle { margin: 22px 0 10px; font-size: 18px; color: #5c6678; }
-    .name { margin: 8px 0 18px; font-size: 40px; font-weight: 700; }
-    .course-label { margin-top: 10px; font-size: 17px; color: #5c6678; }
-    .course { margin-top: 10px; font-size: 30px; font-weight: 700; }
-    .meta { margin-top: 58px; display: flex; justify-content: center; gap: 70px; flex-wrap: wrap; font-family: Arial, sans-serif; font-size: 13px; color: #596579; }
-    .meta strong { display: block; margin-bottom: 5px; color: #172033; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
-    .print-note { margin-top: 28px; font-family: Arial, sans-serif; font-size: 11px; color: #8993a3; }
+    body { font-family: Georgia, "Times New Roman", serif; background: #dfe7f1; color: #13233f; }
+    .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 28px; }
+    .certificate { position: relative; overflow: hidden; width: 100%; max-width: 1120px; min-height: 690px; padding: 58px 78px; background: #fffdf8; border: 8px solid #102b4e; outline: 2px solid #d8a83e; outline-offset: -20px; text-align: center; box-shadow: 0 20px 60px rgba(15,23,42,.22); }
+    .certificate::before, .certificate::after { content: ""; position: absolute; width: 390px; height: 150px; pointer-events: none; }
+    .certificate::before { top: -34px; left: -95px; transform: rotate(-18deg); background: linear-gradient(135deg, #092b4c 0 43%, #0d9bb5 44% 62%, #e1b14a 63% 72%, transparent 73%); }
+    .certificate::after { right: -95px; bottom: -34px; transform: rotate(-18deg); background: linear-gradient(135deg, transparent 0 27%, #e1b14a 28% 37%, #0d9bb5 38% 56%, #092b4c 57%); }
+    .eyebrow { position: relative; z-index: 1; margin-top: 5px; font-size: 13px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; color: #0a8fa8; }
+    .seal { position: relative; z-index: 1; width: 70px; height: 70px; margin: 25px auto 18px; border: 2px solid #d8a83e; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0a8fa8; background: #fffaf0; box-shadow: 0 0 0 7px rgba(216,168,62,.10); }
+    h1 { position: relative; z-index: 1; margin: 0; font-size: 48px; line-height: 1.1; color: #102b4e; }
+    .gold-rule { position: relative; z-index: 1; width: 330px; height: 3px; margin: 12px auto 18px; background: linear-gradient(90deg, transparent, #d8a83e, #0a8fa8, #d8a83e, transparent); }
+    .subtitle { position: relative; z-index: 1; margin: 0 0 8px; font-size: 16px; color: #64748b; }
+    .name { position: relative; z-index: 1; margin: 4px 0 12px; font-size: 42px; font-weight: 700; font-style: italic; color: #162f52; }
+    .course-label { position: relative; z-index: 1; margin-top: 6px; font-size: 15px; color: #64748b; }
+    .course { position: relative; z-index: 1; margin-top: 6px; font-size: 30px; font-weight: 700; color: #078ba5; }
+    .meta { position: relative; z-index: 1; margin: 42px auto 0; display: flex; justify-content: center; gap: 70px; font-family: Arial, sans-serif; font-size: 12px; color: #596579; }
+    .meta div { min-width: 155px; padding: 8px 20px; border-top: 1px solid #e4c36f; }
+    .meta strong { display: block; margin-bottom: 4px; color: #102b4e; font-size: 11px; text-transform: uppercase; letter-spacing: .10em; }
+    .signature { position: relative; z-index: 1; margin-top: 26px; font-family: Arial, sans-serif; }
+    .signature-name { font-family: "Brush Script MT", "Segoe Script", cursive; font-size: 25px; color: #1d2939; }
+    .signature-line { width: 170px; height: 1px; margin: 3px auto 5px; background: #d8a83e; }
+    .signature-role { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: #0a8fa8; }
+    .signature-org { margin-top: 2px; font-size: 10px; color: #64748b; }
     @media print {
       @page { size: landscape; margin: 0; }
       body { background: #fff; }
       .page { min-height: 100vh; padding: 0; }
       .certificate { max-width: none; width: 100vw; min-height: 100vh; border-width: 8px; outline-offset: -18px; box-shadow: none; }
-      .print-note { display: none; }
     }
   </style>
 </head>
@@ -135,6 +141,7 @@ function Certificates() {
       <div class="eyebrow">Certificate of Completion</div>
       <div class="seal">★</div>
       <h1>Certificate of Completion</h1>
+      <div class="gold-rule"></div>
       <div class="subtitle">This certificate is proudly presented to</div>
       <div class="name">${escapeHtml(name)}</div>
       <div class="course-label">for successfully completing</div>
@@ -143,7 +150,12 @@ function Certificates() {
         <div><strong>Issued</strong>${escapeHtml(issuedDate)}</div>
         <div><strong>Certificate No.</strong>${escapeHtml(certificate.certificate_number)}</div>
       </div>
-      <div class="print-note">Coach Amit Soni · AI Learning Hub</div>
+      <div class="signature">
+        <div class="signature-name">Amit Soni</div>
+        <div class="signature-line"></div>
+        <div class="signature-role">COACH AMIT SONI</div>
+        <div class="signature-org">AI Learning Hub</div>
+      </div>
     </main>
   </div>
 </body>
@@ -156,6 +168,6 @@ function Certificates() {
   return <LearnShell>
     <div className="mb-4"><Link to="/learn" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={15} />Learning hub</Link></div>
     <SectionHeader eyebrow="Achievements" title="My certificates" description="Certificates are available only for courses you are enrolled in and have completed to at least 80%." />
-    {loading ? <div className="learn-card flex items-center gap-3 p-6 text-sm text-slate-400"><Loader2 size={18} className="animate-spin" />Checking certificate eligibility...</div> : error ? <div className="learn-card p-6 text-sm text-red-300">{error}</div> : !certificates.length ? <div className="learn-card p-8 text-center"><Award className="mx-auto text-cyan-300" size={36} /><h2 className="mt-4 text-lg font-bold">No certificates yet</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-400">Certificates appear here once you are enrolled in the course and have completed at least 80% of it.</p><Link to="/learn/courses" className="learn-primary-button mt-5 inline-flex"><BookOpen size={15} />Browse courses</Link></div> : <div className="grid gap-5 lg:grid-cols-2">{certificates.map((certificate) => <article key={certificate.id} className="learn-card overflow-hidden p-0" id={`certificate-${certificate.id}`}><div className="p-7 text-center"><div className="text-xs font-semibold uppercase tracking-[.22em] text-cyan-300">Certificate of Completion</div><div className="mt-5 flex justify-center"><div className="flex h-16 w-16 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10"><Award className="text-cyan-300" size={30} /></div></div><h2 className="mt-5 text-2xl font-bold">{name}</h2><p className="mt-3 text-sm text-slate-400">has successfully completed</p><div className="mt-3 text-xl font-bold text-white">{certificate.course?.title || "Course"}</div><div className="mt-6 text-xs text-slate-500">Issued {new Date(certificate.issued_at).toLocaleDateString()} · {certificate.certificate_number}</div></div><div className="flex items-center justify-between border-t border-white/8 px-5 py-4"><Link to="/learn/courses/$slug" params={{ slug: certificate.course?.slug || "" }} className="text-xs text-cyan-300 hover:text-cyan-200">View course</Link><button type="button" onClick={() => void printCertificate(certificate)} disabled={printing !== null} className="learn-secondary-button disabled:cursor-not-allowed disabled:opacity-50"><Printer size={15} />{printing === certificate.id ? "Preparing…" : "Print certificate"}</button></div></article>)}</div>}
+    {loading ? <div className="learn-card flex items-center gap-3 p-6 text-sm text-slate-400"><Loader2 size={18} className="animate-spin" />Checking certificate eligibility...</div> : error ? <div className="learn-card p-6 text-sm text-red-300">{error}</div> : !certificates.length ? <div className="learn-card p-8 text-center"><Award className="mx-auto text-cyan-300" size={36} /><h2 className="mt-4 text-lg font-bold">No certificates yet</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-400">Certificates appear here once you are enrolled in the course and have completed at least 80% of it.</p><Link to="/learn/courses" className="learn-primary-button mt-5 inline-flex"><BookOpen size={15} />Browse courses</Link></div> : <div className="grid gap-5 lg:grid-cols-2">{certificates.map((certificate) => <article key={certificate.id} className="relative overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950/40 shadow-lg shadow-cyan-950/20" id={`certificate-${certificate.id}`}><div className="pointer-events-none absolute -left-16 -top-12 h-32 w-72 -rotate-12 rounded-full bg-gradient-to-r from-blue-950 via-cyan-600 to-amber-400 opacity-80" /><div className="pointer-events-none absolute -bottom-16 -right-16 h-32 w-72 -rotate-12 rounded-full bg-gradient-to-r from-amber-400 via-cyan-600 to-blue-950 opacity-80" /><div className="relative p-7 text-center"><div className="text-xs font-bold uppercase tracking-[.25em] text-cyan-300">Certificate of Completion</div><div className="mx-auto mt-4 flex h-16 w-16 items-center justify-center rounded-full border border-amber-300/60 bg-amber-300/10 shadow-[0_0_25px_rgba(251,191,36,.12)]"><Star className="text-amber-300" size={29} fill="currentColor" /></div><h2 className="mt-4 text-2xl font-bold text-white">{name}</h2><p className="mt-2 text-sm text-slate-400">has successfully completed</p><div className="mt-2 text-xl font-bold text-cyan-200">{certificate.course?.title || "Course"}</div><div className="mx-auto mt-4 h-px w-48 bg-gradient-to-r from-transparent via-amber-300 to-transparent" /><div className="mt-4 text-xs text-slate-400">Issued {new Date(certificate.issued_at).toLocaleDateString()} · {certificate.certificate_number}</div></div><div className="relative flex items-center justify-between border-t border-white/10 bg-slate-950/35 px-5 py-4"><Link to="/learn/courses/$slug" params={{ slug: certificate.course?.slug || "" }} className="text-xs font-semibold text-cyan-300 hover:text-cyan-200">View course</Link><button type="button" onClick={() => void printCertificate(certificate)} disabled={printing !== null} className="learn-secondary-button border-cyan-300/20 bg-cyan-300/5 disabled:cursor-not-allowed disabled:opacity-50"><Printer size={15} />{printing === certificate.id ? "Preparing…" : "Print certificate"}</button></div></article>)}</div>}
   </LearnShell>;
 }
