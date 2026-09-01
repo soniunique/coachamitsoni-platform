@@ -2,14 +2,10 @@ name: LMS lesson completion fix
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/lms-lesson-completion-fix.yml'
-  workflow_dispatch:
 permissions:
   contents: write
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, 'UX: mark lesson complete on selection') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
