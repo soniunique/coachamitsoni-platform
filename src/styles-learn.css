@@ -12,6 +12,9 @@
  */
 .learn-course-player-shell{position:relative;left:50%;width:calc(100vw - 232px);transform:translateX(-50%);padding:0 0 40px 22px;box-sizing:border-box}.learn-course-outline-toggle{position:absolute;top:16px;right:310px;z-index:30;display:grid;place-items:center;width:34px;height:48px;border:1px solid rgba(103,232,249,.28);border-right:0;border-radius:10px 0 0 10px;background:rgba(7,18,34,.96);color:#67e8f9;box-shadow:0 12px 35px -22px rgba(34,211,238,.9);cursor:pointer;transition:background .2s,border-color .2s,color .2s,transform .2s}.learn-course-outline-toggle:hover{background:rgba(34,211,238,.14);border-color:rgba(103,232,249,.65);color:#fff}.learn-course-outline-toggle.is-collapsed{right:0;border-right:1px solid rgba(103,232,249,.28);border-radius:10px 0 0 10px}.learn-course-outline-toggle.is-collapsed:hover{transform:translateX(-2px)}
 
+/* COURSE PLAYER CONTENT DOCK GAP FIX — keep the main lesson and Content dock flush globally */
+.learn-course-player-shell .relative > .grid { gap: 0 !important; }
+
 @media(max-width:1199px){.learn-sidebar{width:220px}.learn-main{margin-left:220px}.learn-topbar{padding:0 18px}.learn-content{padding:20px 18px 36px}.learn-course-player-shell{width:calc(100vw - 220px);padding-left:18px}.learn-course-outline-toggle{right:310px}}
 @media(max-width:1023px){.learn-sidebar{transform:translateX(-100%);transition:transform .25s ease;box-shadow:30px 0 80px -45px #000}.learn-sidebar.is-open{transform:none}.learn-main{margin-left:0}.learn-content{padding:20px 16px 36px}.learn-course-player-shell{left:auto;transform:none;width:100vw;padding:0 16px 36px 16px}.learn-course-outline-toggle{display:none}}
 @media(max-width:640px){.learn-content{padding:16px 12px 30px}.learn-topbar{padding:0 12px;min-height:60px}.learn-card{border-radius:14px}.learn-auth-shell{padding:16px}.learn-auth-card{padding:24px 18px;border-radius:20px}.learn-nav-item{font-size:12px}}
