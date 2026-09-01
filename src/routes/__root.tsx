@@ -77,33 +77,15 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 function GlobalActionFeedback() {
   useEffect(() => {
     const lastText = new WeakMap<Element, string>();
+    const pending = new WeakMap<HTMLButtonElement, number>();
+    const notified = new WeakSet<HTMLButtonElement>();
     const successPattern = /(saved|submitted|updated|created|deleted|sent|enrolled|registered|published|completed|successfully)/i;
     const actionPattern = /^(save|submit|create|update|delete|send|enroll|register|publish|mark\s+complete)/i;
-    const pending = new WeakMap<HTMLButtonElement, number>();
-
-    const showSuccessToast = (element: Element) => {
-      const text = element.textContent?.replace(/\s+/g, " ").trim() || "";
-      if (!text || !successPattern.test(text)) return;
-      if (lastText.get(element) === text) return;
-      lastText.set(element, text);
-      toast.success(text, { duration: 4000 });
-    };
-
-    const hasExplicitSuccess = () => {
-      return Array.from(
-        document.querySelectorAll('[role="status"], [aria-live="polite"], [data-action-feedback="success"], .text-emerald-300'),
-      ).some((element) => successPattern.test(element.textContent?.replace(/\s+/g, " ").trim() || ""));
-    };
-
-    const hasVisibleError = () => {
-      return Boolean(
-        document.querySelector('[role="alert"], [aria-live="assertive"], .text-red-300, .text-red-400'),
-      );
-    };
+    const workingPattern = /(saving|submitting|creating|updating|deleting|sending|enrolling|registering|publishing)/i;
 
     const genericMessage = (label: string) => {
       const normalized = label.toLowerCase();
-      if (normalized.startsWith("save")) return "Saved successfully.";
+      if (normalized.startsWith("save")) return "Changes saved successfully.";
       if (normalized.startsWith("submit")) return "Submitted successfully.";
       if (normalized.startsWith("create")) return "Created successfully.";
       if (normalized.startsWith("update")) return "Updated successfully.";
@@ -115,27 +97,98 @@ function GlobalActionFeedback() {
       return "Action completed successfully.";
     };
 
+    const hasVisibleError = () => Boolean(
+      document.querySelector('[role="alert"], [aria-live="assertive"], .text-red-300, .text-red-400'),
+    );
+
+    const showInlineToast = (message: string) => {
+      const existing = document.querySelector('[data-global-action-toast="true"]');
+      existing?.remove();
+
+      const node = document.createElement("div");
+      node.setAttribute("data-global-action-toast", "true");
+      node.setAttribute("role", "status");
+      node.setAttribute("aria-live", "polite");
+      node.textContent = `✓ ${message}`;
+      Object.assign(node.style, {
+        position: "fixed",
+        left: "50%",
+        bottom: "28px",
+        transform: "translateX(-50%)",
+        zIndex: "2147483647",
+        padding: "12px 18px",
+        borderRadius: "12px",
+        border: "1px solid rgba(52, 211, 153, 0.45)",
+        background: "rgba(6, 32, 27, 0.96)",
+        color: "#a7f3d0",
+        boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
+        fontSize: "14px",
+        fontWeight: "600",
+        pointerEvents: "none",
+      });
+      document.body.appendChild(node);
+      window.setTimeout(() => node.remove(), 3500);
+    };
+
+    const showSuccessToast = (element: Element) => {
+      const text = element.textContent?.replace(/\s+/g, " ").trim() || "";
+      if (!text || !successPattern.test(text)) return;
+      if (lastText.get(element) === text) return;
+      lastText.set(element, text);
+      toast.success(text, { duration: 4000 });
+      showInlineToast(text);
+    };
+
+    const clearPending = (button: HTMLButtonElement) => {
+      const timer = pending.get(button);
+      if (timer) window.clearTimeout(timer);
+      pending.delete(button);
+    };
+
+    const watchAction = (button: HTMLButtonElement, label: string) => {
+      const startedAt = Date.now();
+      const check = () => {
+        if (notified.has(button) || hasVisibleError()) {
+          clearPending(button);
+          return;
+        }
+
+        if (!document.body.contains(button)) {
+          clearPending(button);
+          return;
+        }
+
+        const current = button.textContent?.replace(/\s+/g, " ").trim() || "";
+        const working = button.disabled || workingPattern.test(current);
+        const timedLongEnough = Date.now() - startedAt >= 1200;
+
+        if (!working && timedLongEnough) {
+          notified.add(button);
+          showInlineToast(genericMessage(label));
+          toast.success(genericMessage(label), { duration: 3500 });
+          clearPending(button);
+          return;
+        }
+
+        if (Date.now() - startedAt >= 12000) {
+          clearPending(button);
+          return;
+        }
+
+        pending.set(button, window.setTimeout(check, 250));
+      };
+
+      pending.set(button, window.setTimeout(check, 1200));
+    };
+
     const onClick = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target.closest("button") : null;
       if (!(target instanceof HTMLButtonElement)) return;
       const label = target.textContent?.replace(/\s+/g, " ").trim() || "";
       if (!actionPattern.test(label)) return;
-
-      const token = window.setTimeout(() => {
-        pending.delete(target);
-        if (hasVisibleError() || hasExplicitSuccess()) return;
-        if (document.body.contains(target) && (target.disabled || /saving|submitting|creating|updating|deleting|sending/i.test(target.textContent || ""))) {
-          pending.set(target, window.setTimeout(() => {
-            pending.delete(target);
-            if (!hasVisibleError() && !hasExplicitSuccess() && !target.disabled) {
-              toast.success(genericMessage(label), { duration: 3500 });
-            }
-          }, 1800));
-          return;
-        }
-        toast.success(genericMessage(label), { duration: 3500 });
-      }, 1800);
-      pending.set(target, token);
+      clearPending(target);
+      notified.delete(target);
+      watchAction(target, label);
     };
 
     const scan = () => {
@@ -151,6 +204,7 @@ function GlobalActionFeedback() {
     return () => {
       document.removeEventListener("click", onClick, true);
       observer.disconnect();
+      document.querySelector('[data-global-action-toast="true"]')?.remove();
     };
   }, []);
 
