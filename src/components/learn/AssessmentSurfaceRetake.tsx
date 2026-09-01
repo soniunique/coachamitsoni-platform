@@ -30,8 +30,11 @@ export function AssessmentSurfaceRetake({ pathname, isAdmin }: { pathname: strin
       });
       if (!startButton) return;
 
+      const currentLabel = (startButton.textContent || "").replace(/\s+/g, " ").trim();
+      if (currentLabel === "Starting...") return;
+
       const nextLabel = canRetake ? "Retake Assessment" : "Maximum attempts reached";
-      if ((startButton.textContent || "").trim() !== nextLabel) startButton.textContent = nextLabel;
+      if (currentLabel !== nextLabel) startButton.textContent = nextLabel;
 
       if (canRetake) {
         startButton.removeAttribute("disabled");
