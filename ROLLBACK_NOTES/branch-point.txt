@@ -1,1 +1,0 @@
-Use commit 4426b0fb1e240729b4702a9cdc815a29b5d1ac72 as the branch point if a full pre-rollback snapshot branch is needed.
