@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, FileText, Film, Link2, Loader2, LockKeyhole, Menu } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, FileText, Film, Link2, Loader2, LockKeyhole, Menu } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { LearnShell } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ function CourseDetail() {
   const [selectedId, setSelectedId] = useState<string | null>(null), [selectedUrl, setSelectedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true), [loadingLesson, setLoadingLesson] = useState(false), [savingComplete, setSavingComplete] = useState(false);
   const [error, setError] = useState(""), [mobileOutlineOpen, setMobileOutlineOpen] = useState(false), [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [contentPanelOpen, setContentPanelOpen] = useState(true);
   const [completionOpen, setCompletionOpen] = useState(false), [nextCourseSlug, setNextCourseSlug] = useState<string | null>(null), [findingNextCourse, setFindingNextCourse] = useState(false);
 
   const selected = lessons.find((l) => l.id === selectedId) ?? null;
@@ -61,9 +62,9 @@ function CourseDetail() {
     const { data: ls, error: le } = await supabase.from("course_lessons").select("id,module_id,title,description,content_url,content_body,content_storage_path,content_type,sort_order,is_preview").in("module_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("sort_order");
     if (le) { setError(le.message); setLoading(false); return; }
     const loadedLessons = (ls || []) as Lesson[];
-const moduleOrder = new Map(loadedModules.map((m, index) => [m.id, index]));
-const orderedLessons = [...loadedLessons].sort((a, b) => (moduleOrder.get(a.module_id) ?? 0) - (moduleOrder.get(b.module_id) ?? 0) || a.sort_order - b.sort_order);
-setLessons(orderedLessons);
+    const moduleOrder = new Map(loadedModules.map((m, index) => [m.id, index]));
+    const orderedLessons = [...loadedLessons].sort((a, b) => (moduleOrder.get(a.module_id) ?? 0) - (moduleOrder.get(b.module_id) ?? 0) || a.sort_order - b.sort_order);
+    setLessons(orderedLessons);
     if (user && loadedLessons.length) {
       const { data: rows } = await supabase.from("lesson_progress").select("lesson_id,completed").eq("user_id", user.id).in("lesson_id", loadedLessons.map((l) => l.id));
       setCompleted(new Set((rows || []).filter((r: { completed: boolean }) => r.completed).map((r: { lesson_id: string }) => r.lesson_id)));
@@ -183,24 +184,29 @@ setLessons(orderedLessons);
       <div className="mb-4 flex items-center justify-between"><Link to="/learn/courses" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={15} />All courses</Link><span className="text-xs text-slate-500">{progress}% complete</span></div>
       <section className="learn-card p-5"><div className="learn-eyebrow">Course</div><h1 className="mt-1 text-2xl font-bold tracking-tight">{course.title}</h1><p className="mt-2 text-sm text-slate-400">{course.description || "Follow the course lessons at your own pace."}</p>{!enrolled && <div className="mt-4 flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-amber-100"><LockKeyhole size={16} />An administrator must enrol you in this program before lessons can be opened.</div>}</section>
       <div className="mt-4 learn-card overflow-hidden">{roadmap}</div>
-    </> : <>
+    </> : <div className="learn-course-player-shell">
       <div className="mb-3 flex items-center justify-between gap-3"><Link to="/learn/courses" className="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-white"><ArrowLeft size={14} />All courses</Link><div className="text-xs text-slate-500">{completedCount}/{lessons.length} complete · {progress}%</div></div>
       <div className="mb-3 lg:hidden"><button type="button" className="learn-secondary-button" onClick={() => setMobileOutlineOpen((v) => !v)}><Menu size={15} />{mobileOutlineOpen ? "Close content" : "Content"}</button>{mobileOutlineOpen && <div className="mt-2 learn-card overflow-hidden">{roadmap}</div>}</div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_310px] lg:items-start">
-        <main className="min-w-0">
-          <section className="learn-card overflow-hidden">
-            <div className="aspect-video min-h-[260px] bg-black flex items-center justify-center">
-              {loadingLesson ? <Loader2 size={28} className="animate-spin text-slate-400" /> : selected.content_type === "article" ? <article className="h-full w-full overflow-auto bg-white p-5 text-left text-sm leading-6 text-slate-800 whitespace-pre-wrap">{selected.content_body || "No text has been added to this lesson."}</article> : selected.content_type === "pdf" && selectedUrl ? <iframe src={selectedUrl} title={selected.title} className="h-full w-full" /> : selected.content_type === "video" && selectedUrl ? (youtubeEmbed(selectedUrl) ? <iframe src={youtubeEmbed(selectedUrl) || undefined} title={selected.title} className="h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /> : <video src={selectedUrl} controls className="h-full w-full object-contain" />) : selectedUrl ? <a href={selectedUrl} target="_blank" rel="noreferrer" className="learn-primary-button"><ExternalLink size={16} />Open content</a> : <div className="text-sm text-slate-500">No lesson content has been added.</div>}
-            </div>
-            <div className="border-t border-white/10 px-4 py-3 sm:px-5"><div className="text-[10px] uppercase tracking-[.14em] text-slate-500">{meta[selected.content_type || ""]?.label || "Lesson"}</div><div className="mt-1 flex items-start justify-between gap-3"><div><h1 className="text-lg font-bold text-white">{selected.title}</h1>{selected.description && <p className="mt-1 text-xs leading-5 text-slate-400">{selected.description}</p>}</div>{completed.has(selected.id) && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300"><Check size={12} />Complete</span>}</div></div>
-          </section>
-          <section className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => void saveCompletion(selected.id, !completed.has(selected.id))} disabled={!enrolled || savingComplete} className={`learn-secondary-button ${completed.has(selected.id) ? "border-emerald-400/30 text-emerald-300" : ""}`}><Check size={15} />{savingComplete ? "Saving…" : completed.has(selected.id) ? "Mark incomplete" : "Mark complete"}</button><div className="flex gap-2"><button type="button" disabled={!previous || !enrolled || savingComplete} onClick={() => previous && void openLesson(previous, false)} className="learn-secondary-button disabled:opacity-40"><ArrowLeft size={14} />Previous</button>{next ? <button type="button" disabled={!enrolled || savingComplete} onClick={() => void handleNext()} className="learn-primary-button disabled:opacity-40">Next<ArrowRight size={14} /></button> : <button type="button" disabled={!enrolled || selectedIndex !== lessons.length - 1 || savingComplete || findingNextCourse} onClick={() => void handleCourseComplete()} className="learn-primary-button disabled:opacity-40">{findingNextCourse ? "Checking…" : "Course complete"}<ArrowRight size={14} /></button>}</div></section>
-          <div className="mt-2 text-[10px] text-slate-500">Lesson {selectedIndex + 1} of {lessons.length}</div>
-        </main>
-        <aside className="hidden lg:block"><div className="learn-card sticky top-4 overflow-hidden">{roadmap}</div></aside>
+      <div className="relative">
+        <button type="button" aria-label={contentPanelOpen ? "Hide content panel" : "Show content panel"} title={contentPanelOpen ? "Hide Content" : "Show Content"} onClick={() => setContentPanelOpen((v) => !v)} className={`learn-course-outline-toggle ${contentPanelOpen ? "is-open" : "is-collapsed"}`}>
+          {contentPanelOpen ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        </button>
+        <div className={contentPanelOpen ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_310px] lg:items-start" : "grid gap-4 lg:grid-cols-1 lg:items-start"}>
+          <main className="min-w-0">
+            <section className="learn-card overflow-hidden">
+              <div className="aspect-video min-h-[260px] bg-black flex items-center justify-center">
+                {loadingLesson ? <Loader2 size={28} className="animate-spin text-slate-400" /> : selected.content_type === "article" ? <article className="h-full w-full overflow-auto bg-white p-5 text-left text-sm leading-6 text-slate-800 whitespace-pre-wrap">{selected.content_body || "No text has been added to this lesson."}</article> : selected.content_type === "pdf" && selectedUrl ? <iframe src={selectedUrl} title={selected.title} className="h-full w-full" /> : selected.content_type === "video" && selectedUrl ? (youtubeEmbed(selectedUrl) ? <iframe src={youtubeEmbed(selectedUrl) || undefined} title={selected.title} className="h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /> : <video src={selectedUrl} controls className="h-full w-full object-contain" />) : selectedUrl ? <a href={selectedUrl} target="_blank" rel="noreferrer" className="learn-primary-button"><ExternalLink size={16} />Open content</a> : <div className="text-sm text-slate-500">No lesson content has been added.</div>}
+              </div>
+              <div className="border-t border-white/10 px-4 py-3 sm:px-5"><div className="text-[10px] uppercase tracking-[.14em] text-slate-500">{meta[selected.content_type || ""]?.label || "Lesson"}</div><div className="mt-1 flex items-start justify-between gap-3"><div><h1 className="text-lg font-bold text-white">{selected.title}</h1>{selected.description && <p className="mt-1 text-xs leading-5 text-slate-400">{selected.description}</p>}</div>{completed.has(selected.id) && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300"><Check size={12} />Complete</span>}</div></div>
+            </section>
+            <section className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => void saveCompletion(selected.id, !completed.has(selected.id))} disabled={!enrolled || savingComplete} className={`learn-secondary-button ${completed.has(selected.id) ? "border-emerald-400/30 text-emerald-300" : ""}`}><Check size={15} />{savingComplete ? "Saving…" : completed.has(selected.id) ? "Mark incomplete" : "Mark complete"}</button><div className="flex gap-2"><button type="button" disabled={!previous || !enrolled || savingComplete} onClick={() => previous && void openLesson(previous, false)} className="learn-secondary-button disabled:opacity-40"><ArrowLeft size={14} />Previous</button>{next ? <button type="button" disabled={!enrolled || savingComplete} onClick={() => void handleNext()} className="learn-primary-button disabled:opacity-40">Next<ArrowRight size={14} /></button> : <button type="button" disabled={!enrolled || selectedIndex !== lessons.length - 1 || savingComplete || findingNextCourse} onClick={() => void handleCourseComplete()} className="learn-primary-button disabled:opacity-40">{findingNextCourse ? "Checking…" : "Course complete"}<ArrowRight size={14} /></button>}</div></section>
+            <div className="mt-2 text-[10px] text-slate-500">Lesson {selectedIndex + 1} of {lessons.length}</div>
+          </main>
+          {contentPanelOpen && <aside className="hidden lg:block"><div className="learn-card sticky top-4 overflow-hidden">{roadmap}</div></aside>}
+        </div>
       </div>
-    </>}
+    </div>}
 
     {completionOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="course-complete-title"><div className="learn-card w-full max-w-md p-7 text-center shadow-2xl"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-300"><CheckCircle2 size={30} /></div><h2 id="course-complete-title" className="mt-4 text-2xl font-bold text-white">Congratulations!</h2><p className="mt-2 text-base text-slate-200">You completed this Course</p><p className="mt-2 text-sm text-slate-400">Your progress has been saved successfully.</p><button type="button" onClick={continueAfterCompletion} className="learn-primary-button mx-auto mt-6" autoFocus>OK</button></div></div>}
   </LearnShell>;
