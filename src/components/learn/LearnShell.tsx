@@ -19,14 +19,14 @@ const adminNav = [
   { title: "Admin", items: [{ label: "Dashboard", to: "/learn", icon: LayoutDashboard }] },
   { title: "Learning", items: [
     { label: "Programs & Courses", to: "/learn/manage/courses", icon: BookOpen },
-    { label: "Program Enrolment", to: "/learn/manage/enrolments", icon: UserCheck },
+    { label: "Enrolment", to: "/learn/manage/enrolments", icon: UserCheck },
   ] },
   { title: "Workshops", items: [
     { label: "Workshops", to: "/learn/manage/workshops", icon: Users },
-    { label: "Registrations", to: "/learn/manage/workshop-registrations", icon: ClipboardCheck },
+    { label: "Workshop Registrations", to: "/learn/manage/workshop-registrations", icon: ClipboardCheck },
   ] },
   { title: "Learners", items: [{ label: "Learners", to: "/learn/manage/students", icon: Users }] },
-  { title: "Reporting", items: [{ label: "Reports & Analytics", to: "/learn/manage/reports", icon: FileBarChart }] },
+  { title: "Reporting", items: [{ label: "Reports", to: "/learn/manage/reports", icon: FileBarChart }] },
   { title: "Communications", items: [
     { label: "Announcements", to: "/learn/manage/announcements", icon: Megaphone },
     { label: "Messages", to: "/learn/messages", icon: MessageSquare },
