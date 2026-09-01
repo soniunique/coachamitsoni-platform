@@ -1,0 +1,3 @@
+Backup marker: main state immediately before admin navigation rollback.
+Original application commit: 439af8840a502e1d42f88092df3e1f4fadbf974f
+LearnShell current blob: 5a47475e59b8d4d092717a488b17f84722e4bf0a
