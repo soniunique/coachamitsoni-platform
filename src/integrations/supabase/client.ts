@@ -7,7 +7,7 @@ function isNewSupabaseApiKey(value: string): boolean {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
