@@ -1,5 +1,5 @@
+import { Award, BookOpen, ClipboardCheck, Loader2, Search } from "lucide-react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Award, BookOpen, Loader2, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,8 @@ type Lesson = { id: string; module_id: string };
 type Prog = { user_id: string; lesson_id: string; completed: boolean };
 type Cert = { user_id: string; course_id: string; certificate_number: string; issued_at: string };
 type StudentEmail = { id: string; email: string | null };
+type Assessment = { id: string; course_id: string; title: string; passing_percentage: number; max_attempts: number | null };
+type Attempt = { user_id: string; assessment_id: string; attempt_number: number; score: number; passed: boolean; submitted_at: string };
 
 export const Route = createFileRoute("/learn/manage/students")({ component: Students });
 
@@ -32,6 +34,8 @@ function Students() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [progress, setProgress] = useState<Prog[]>([]);
   const [certs, setCerts] = useState<Cert[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [attempts, setAttempts] = useState<Attempt[]>([]);
   const [selected, setSelected] = useState("");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -62,7 +66,7 @@ function Students() {
         return;
       }
 
-      const [st, pr, en, co, mo, le, lp, ce] = await Promise.all([
+      const [st, pr, en, co, mo, le, lp, ce, ca, at] = await Promise.all([
         supabase
           .from("profiles")
           .select("id,full_name,avatar_url,bio,created_at")
@@ -77,9 +81,16 @@ function Students() {
         supabase
           .from("course_certificates")
           .select("user_id,course_id,certificate_number,issued_at"),
+        supabase
+          .from("course_assessments")
+          .select("id,course_id,title,passing_percentage,max_attempts"),
+        supabase
+          .from("assessment_attempts")
+          .select("user_id,assessment_id,attempt_number,score,passed,submitted_at")
+          .order("submitted_at", { ascending: false }),
       ]);
 
-      const err = st.error || pr.error || en.error || co.error || mo.error || le.error || lp.error || ce.error;
+      const err = st.error || pr.error || en.error || co.error || mo.error || le.error || lp.error || ce.error || ca.error || at.error;
       if (err) {
         setError(err.message);
         setLoading(false);
@@ -95,6 +106,8 @@ function Students() {
       setLessons((le.data || []) as Lesson[]);
       setProgress((lp.data || []) as Prog[]);
       setCerts((ce.data || []) as Cert[]);
+      setAssessments((ca.data || []) as Assessment[]);
+      setAttempts((at.data || []) as Attempt[]);
       setSelected(loadedStudents[0]?.id || "");
 
       const { data: emailData } = await supabase.functions.invoke("get-student-emails", {
@@ -146,15 +159,32 @@ function Students() {
       };
     });
 
+    const studentAttempts = attempts.filter((a) => a.user_id === s.id);
+    const studentAssessments = assessments
+      .filter((a) => cs.some((c) => c.id === a.course_id))
+      .map((assessment) => {
+        const course = cs.find((c) => c.id === assessment.course_id);
+        const rows = studentAttempts
+          .filter((a) => a.assessment_id === assessment.id)
+          .sort((a, b) => b.attempt_number - a.attempt_number);
+        return {
+          ...assessment,
+          courseTitle: course?.title || "Course",
+          attemptsUsed: rows.length,
+          latest: rows[0] || null,
+        };
+      });
+
     return {
       programs: programStats,
       courses: cs,
+      assessments: studentAssessments,
       percent: ls.length ? Math.round((ls.filter((l) => done.has(l.id)).length / ls.length) * 100) : 0,
       certs: certs.filter((c) => c.user_id === s.id),
       lessons: ls.length,
       done: ls.filter((l) => done.has(l.id)).length,
     };
-  }, [s, enrolments, courses, modules, lessons, progress, programs, certs]);
+  }, [s, enrolments, courses, modules, lessons, progress, programs, certs, assessments, attempts]);
 
   if (loading) {
     return (
@@ -172,7 +202,7 @@ function Students() {
       <SectionHeader
         eyebrow="Admin · Students"
         title="Students"
-        description="View enrolments, progress and certificates for your students."
+        description="View enrolments, progress, assessments and certificates for your students."
       />
       <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
         <aside className="learn-card p-4">
@@ -285,6 +315,45 @@ function Students() {
                   ))}
                   {!details.programs.length && (
                     <p className="text-sm text-slate-500">No active program enrolments.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="learn-card p-6">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck size={18} className="text-cyan-300" />
+                  <h3 className="text-lg font-bold">Assessments</h3>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {details.assessments.map((a) => (
+                    <div key={a.id} className="rounded-xl border border-white/8 bg-white/[.03] p-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="min-w-0">
+                          <div className="font-semibold">{a.courseTitle}</div>
+                          <div className="mt-1 text-sm text-slate-400">{a.title}</div>
+                        </div>
+                        <div className="text-left md:text-right">
+                          <div className="text-sm font-semibold text-cyan-300">
+                            {a.attemptsUsed} / {a.max_attempts ?? "∞"} attempts
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500">Passing score: {a.passing_percentage}%</div>
+                        </div>
+                      </div>
+                      {a.latest ? (
+                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/8 pt-3 text-xs">
+                          <span className={a.latest.passed ? "text-emerald-300" : "text-amber-300"}>
+                            {a.latest.passed ? "Passed" : "Failed"}
+                          </span>
+                          <span className="text-slate-400">Latest score: {a.latest.score}%</span>
+                          <span className="text-slate-500">Latest: {new Date(a.latest.submitted_at).toLocaleString()}</span>
+                        </div>
+                      ) : (
+                        <div className="mt-3 border-t border-white/8 pt-3 text-xs text-slate-500">Not attempted yet.</div>
+                      )}
+                    </div>
+                  ))}
+                  {!details.assessments.length && (
+                    <p className="text-sm text-slate-500">No assessments configured for the student&apos;s enrolled courses.</p>
                   )}
                 </div>
               </div>
