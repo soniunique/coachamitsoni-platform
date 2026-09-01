@@ -131,12 +131,12 @@ function GlobalActionFeedback() {
     };
 
     const showSuccessToast = (element: Element) => {
+      if (element instanceof HTMLElement && element.dataset.globalActionToast === "true") return;
       const text = element.textContent?.replace(/\s+/g, " ").trim() || "";
       if (!text || !successPattern.test(text)) return;
       if (lastText.get(element) === text) return;
       lastText.set(element, text);
       toast.success(text, { duration: 4000 });
-      showInlineToast(text);
     };
 
     const clearPending = (button: HTMLButtonElement) => {
