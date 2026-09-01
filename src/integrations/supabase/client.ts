@@ -6,8 +6,12 @@ function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
-  return (input, init) => {
+  return async (input, init) => {
     const headers = new Headers(
       typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
     );
@@ -22,7 +26,21 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     headers.set('apikey', supabaseKey);
-    return fetch(input, { ...init, headers });
+
+    // Supabase/PostgREST can intermittently reject a freshly issued JWT with
+    // PGRST303 ("JWT issued at future") because the validator's clock can lag
+    // the Auth/gateway clock. Retry only that specific transient condition.
+    const retryDelays = [400, 900];
+    for (let attempt = 0; ; attempt += 1) {
+      const response = await fetch(input, { ...init, headers });
+      if (response.status !== 401 || attempt >= retryDelays.length) return response;
+
+      const body = await response.clone().json().catch(() => null) as { code?: string; message?: string } | null;
+      const isJwtIssuedAtFuture = body?.code === 'PGRST303' || body?.message === 'JWT issued at future';
+      if (!isJwtIssuedAtFuture) return response;
+
+      await sleep(retryDelays[attempt]);
+    }
   };
 }
 
