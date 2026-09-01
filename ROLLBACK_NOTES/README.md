@@ -1,1 +1,0 @@
-Rollback checkpoint. The immediately preceding main state was 439af8840a502e1d42f88092df3e1f4fadbf974f. The admin navigation rollback changes only LearnShell.tsx; restore that file from commit 439af8840a502e1d42f88092df3e1f4fadbf974f if needed.
