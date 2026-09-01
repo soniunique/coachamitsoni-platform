@@ -1,0 +1,38 @@
+name: LMS lesson completion fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/lms-lesson-completion-fix.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'UX: mark lesson complete on selection') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mark selected lessons complete
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/routes/learn/courses/$slug.tsx')
+          s = p.read_text()
+          old = 'openLesson(l, false)'
+          new = 'openLesson(l, true)'
+          count = s.count(old)
+          if count == 0:
+              raise SystemExit('Lesson outline click anchor not found')
+          s = s.replace(old, new)
+          p.write_text(s)
+          print(f'Updated {count} lesson outline click handler(s).')
+          PY
+      - name: Commit source change and remove temporary workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/lms-lesson-completion-fix.yml
+          git add 'src/routes/learn/courses/$slug.tsx' .github/workflows/lms-lesson-completion-fix.yml
+          git commit -m 'UX: mark lesson complete on selection'
+          git push
