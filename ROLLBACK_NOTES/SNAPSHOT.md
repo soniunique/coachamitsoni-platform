@@ -1,0 +1,1 @@
+Pre-navigation rollback snapshot: commit 439af8840a502e1d42f88092df3e1f4fadbf974f. Latest audit-only main commit before rollback: 5f22c93d9de8785dae0bf453ecc5e433bed254b2.
