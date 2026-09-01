@@ -26,17 +26,18 @@ export function AssessmentSurfaceRetake({ pathname, isAdmin }: { pathname: strin
       const buttons = Array.from(root.querySelectorAll("button"));
       const startButton = buttons.find((button) => {
         const label = (button.textContent || "").replace(/\s+/g, " ").trim();
-        return label === "Start assessment" || label === "Starting..." || label === "Retake Assessment";
+        return label === "Start assessment" || label === "Starting..." || label === "Retake Assessment" || label === "Maximum attempts reached";
       });
       if (!startButton) return;
 
+      const nextLabel = canRetake ? "Retake Assessment" : "Maximum attempts reached";
+      if ((startButton.textContent || "").trim() !== nextLabel) startButton.textContent = nextLabel;
+
       if (canRetake) {
-        startButton.textContent = "Retake Assessment";
         startButton.removeAttribute("disabled");
         startButton.setAttribute("aria-label", "Retake Assessment");
         startButton.classList.remove("opacity-50", "cursor-not-allowed");
       } else {
-        startButton.textContent = "Maximum attempts reached";
         startButton.setAttribute("disabled", "true");
         startButton.setAttribute("aria-label", "Maximum attempts reached");
       }
