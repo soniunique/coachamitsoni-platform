@@ -11,7 +11,6 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
-import { toast } from "sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -76,10 +75,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
 function GlobalActionFeedback() {
   useEffect(() => {
-    const lastText = new WeakMap<Element, string>();
     const pending = new WeakMap<HTMLButtonElement, number>();
     const notified = new WeakSet<HTMLButtonElement>();
-    const successPattern = /(saved|submitted|updated|created|deleted|sent|enrolled|registered|published|completed|successfully)/i;
     const actionPattern = /^(save|submit|create|update|delete|send|enroll|register|publish|mark\s+complete)/i;
     const workingPattern = /(saving|submitting|creating|updating|deleting|sending|enrolling|registering|publishing)/i;
 
@@ -99,6 +96,10 @@ function GlobalActionFeedback() {
 
     const hasVisibleError = () => Boolean(
       document.querySelector('[role="alert"], [aria-live="assertive"], .text-red-300, .text-red-400'),
+    );
+
+    const hasSpecificSuccess = () => Boolean(
+      document.querySelector('[role="status"][data-action-feedback="success"], [data-action-feedback="success"]'),
     );
 
     const showInlineToast = (message: string) => {
@@ -130,15 +131,6 @@ function GlobalActionFeedback() {
       window.setTimeout(() => node.remove(), 3500);
     };
 
-    const showSuccessToast = (element: Element) => {
-      if (element instanceof HTMLElement && element.dataset.globalActionToast === "true") return;
-      const text = element.textContent?.replace(/\s+/g, " ").trim() || "";
-      if (!text || !successPattern.test(text)) return;
-      if (lastText.get(element) === text) return;
-      lastText.set(element, text);
-      toast.success(text, { duration: 4000 });
-    };
-
     const clearPending = (button: HTMLButtonElement) => {
       const timer = pending.get(button);
       if (timer) window.clearTimeout(timer);
@@ -148,7 +140,7 @@ function GlobalActionFeedback() {
     const watchAction = (button: HTMLButtonElement, label: string) => {
       const startedAt = Date.now();
       const check = () => {
-        if (notified.has(button) || hasVisibleError()) {
+        if (notified.has(button) || hasVisibleError() || hasSpecificSuccess()) {
           clearPending(button);
           return;
         }
@@ -165,7 +157,6 @@ function GlobalActionFeedback() {
         if (!working && timedLongEnough) {
           notified.add(button);
           showInlineToast(genericMessage(label));
-          toast.success(genericMessage(label), { duration: 3500 });
           clearPending(button);
           return;
         }
@@ -191,19 +182,9 @@ function GlobalActionFeedback() {
       watchAction(target, label);
     };
 
-    const scan = () => {
-      document
-        .querySelectorAll('[role="status"], [aria-live="polite"], [data-action-feedback="success"]')
-        .forEach(showSuccessToast);
-    };
-
     document.addEventListener("click", onClick, true);
-    scan();
-    const observer = new MutationObserver(scan);
-    observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
     return () => {
       document.removeEventListener("click", onClick, true);
-      observer.disconnect();
       document.querySelector('[data-global-action-toast="true"]')?.remove();
     };
   }, []);
