@@ -1,0 +1,1 @@
+Preserved current state reference: 439af8840a502e1d42f88092df3e1f4fadbf974f. This file exists only to keep a durable audit trail in main.
