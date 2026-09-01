@@ -73,125 +73,6 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-function GlobalActionFeedback() {
-  useEffect(() => {
-    const pending = new WeakMap<HTMLButtonElement, number>();
-    const notified = new WeakSet<HTMLButtonElement>();
-    const actionPattern = /^(save|submit|create|update|delete|send|enroll|register|publish|mark\s+complete)/i;
-    const workingPattern = /(saving|submitting|creating|updating|deleting|sending|enrolling|registering|publishing)/i;
-
-    const genericMessage = (label: string) => {
-      const normalized = label.toLowerCase();
-      if (normalized.startsWith("save")) return "Changes saved successfully.";
-      if (normalized.startsWith("submit")) return "Submitted successfully.";
-      if (normalized.startsWith("create")) return "Created successfully.";
-      if (normalized.startsWith("update")) return "Updated successfully.";
-      if (normalized.startsWith("delete")) return "Deleted successfully.";
-      if (normalized.startsWith("send")) return "Sent successfully.";
-      if (normalized.startsWith("enroll")) return "Enrolment updated successfully.";
-      if (normalized.startsWith("register")) return "Registered successfully.";
-      if (normalized.startsWith("publish")) return "Published successfully.";
-      return "Action completed successfully.";
-    };
-
-    const hasVisibleError = () => Boolean(
-      document.querySelector('[role="alert"], [aria-live="assertive"], .text-red-300, .text-red-400'),
-    );
-
-    const hasSpecificSuccess = () => Boolean(
-      document.querySelector('[role="status"][data-action-feedback="success"], [data-action-feedback="success"]'),
-    );
-
-    const showInlineToast = (message: string) => {
-      const existing = document.querySelector('[data-global-action-toast="true"]');
-      existing?.remove();
-
-      const node = document.createElement("div");
-      node.setAttribute("data-global-action-toast", "true");
-      node.setAttribute("role", "status");
-      node.setAttribute("aria-live", "polite");
-      node.textContent = `✓ ${message}`;
-      Object.assign(node.style, {
-        position: "fixed",
-        left: "50%",
-        bottom: "28px",
-        transform: "translateX(-50%)",
-        zIndex: "2147483647",
-        padding: "12px 18px",
-        borderRadius: "12px",
-        border: "1px solid rgba(52, 211, 153, 0.45)",
-        background: "rgba(6, 32, 27, 0.96)",
-        color: "#a7f3d0",
-        boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
-        fontSize: "14px",
-        fontWeight: "600",
-        pointerEvents: "none",
-      });
-      document.body.appendChild(node);
-      window.setTimeout(() => node.remove(), 3500);
-    };
-
-    const clearPending = (button: HTMLButtonElement) => {
-      const timer = pending.get(button);
-      if (timer) window.clearTimeout(timer);
-      pending.delete(button);
-    };
-
-    const watchAction = (button: HTMLButtonElement, label: string) => {
-      const startedAt = Date.now();
-      const check = () => {
-        if (notified.has(button) || hasVisibleError() || hasSpecificSuccess()) {
-          clearPending(button);
-          return;
-        }
-
-        if (!document.body.contains(button)) {
-          clearPending(button);
-          return;
-        }
-
-        const current = button.textContent?.replace(/\s+/g, " ").trim() || "";
-        const working = button.disabled || workingPattern.test(current);
-        const timedLongEnough = Date.now() - startedAt >= 1200;
-
-        if (!working && timedLongEnough) {
-          notified.add(button);
-          showInlineToast(genericMessage(label));
-          clearPending(button);
-          return;
-        }
-
-        if (Date.now() - startedAt >= 12000) {
-          clearPending(button);
-          return;
-        }
-
-        pending.set(button, window.setTimeout(check, 250));
-      };
-
-      pending.set(button, window.setTimeout(check, 1200));
-    };
-
-    const onClick = (event: MouseEvent) => {
-      const target = event.target instanceof Element ? event.target.closest("button") : null;
-      if (!(target instanceof HTMLButtonElement)) return;
-      const label = target.textContent?.replace(/\s+/g, " ").trim() || "";
-      if (!actionPattern.test(label)) return;
-      clearPending(target);
-      notified.delete(target);
-      watchAction(target, label);
-    };
-
-    document.addEventListener("click", onClick, true);
-    return () => {
-      document.removeEventListener("click", onClick, true);
-      document.querySelector('[data-global-action-toast="true"]')?.remove();
-    };
-  }, []);
-
-  return null;
-}
-
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -231,7 +112,6 @@ function RootShell({ children }: { children: ReactNode }) {
       <body>
         {children}
         <Toaster position="bottom-center" richColors duration={4000} />
-        <GlobalActionFeedback />
         <Scripts />
       </body>
     </html>
