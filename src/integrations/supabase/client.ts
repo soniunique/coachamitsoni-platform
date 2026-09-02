@@ -6,6 +6,27 @@ function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
 }
 
+let authRecoveryTriggered = false;
+
+function recoverFromFutureJwt(response: Response): void {
+  if (authRecoveryTriggered || response.status < 400 || typeof window === 'undefined') return;
+
+  void response.clone().text().then((body) => {
+    if (!/JWT issued at future/i.test(body) || authRecoveryTriggered) return;
+    authRecoveryTriggered = true;
+
+    // A locally persisted Supabase session can become invalid when its JWT
+    // timestamp is ahead of the auth server. Clear only Supabase auth storage
+    // and reload so the normal login flow can establish a fresh session.
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (key && /^sb-[^-]+-auth-token$/.test(key)) localStorage.removeItem(key);
+    }
+
+    window.location.reload();
+  }).catch(() => undefined);
+}
+
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
   return (input, init) => {
     const headers = new Headers(
@@ -22,7 +43,10 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     headers.set('apikey', supabaseKey);
-    return fetch(input, { ...init, headers });
+    return fetch(input, { ...init, headers }).then((response) => {
+      recoverFromFutureJwt(response);
+      return response;
+    });
   };
 }
 
@@ -65,4 +89,3 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     return Reflect.get(_supabase, prop, receiver);
   },
 });
-
