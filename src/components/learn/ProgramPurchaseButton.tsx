@@ -21,6 +21,7 @@ type OrderResponse = {
 type VerifyResponse = {
   success: boolean;
   enrolled: boolean;
+  account_created?: boolean;
 };
 
 let razorpayLoader: Promise<void> | null = null;
@@ -54,24 +55,43 @@ export function ProgramPurchaseButton({ programId, programTitle, priceInr }: { p
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
 
   useEffect(() => {
     if (!open) {
       setProcessing(false);
       setError("");
       setSuccess(false);
+      setAccountCreated(false);
+      return;
     }
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      setEmail(current => current || user.email || "");
+      setFullName(current => current || (user.user_metadata?.full_name as string | undefined) || "");
+    });
   }, [open]);
 
   async function startPayment() {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedName = fullName.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError("Enter a valid email address. Your LMS access details will be linked to this email.");
+      return;
+    }
+    if (normalizedName.length < 2) {
+      setError("Enter your full name.");
+      return;
+    }
+
     setProcessing(true);
     setError("");
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) throw new Error("Please sign in before purchasing a program.");
-
+      const { data: { user } } = await supabase.auth.getUser();
       const { data, error: orderError } = await supabase.functions.invoke("create-program-payment-order", {
-        body: { program_id: programId },
+        body: { program_id: programId, email: normalizedEmail, full_name: normalizedName, authenticated_user_id: user?.id ?? null },
       });
       if (orderError) throw new Error(orderError.message || "Unable to start checkout.");
       const order = data as OrderResponse | null;
@@ -87,7 +107,7 @@ export function ProgramPurchaseButton({ programId, programTitle, priceInr }: { p
         name: "Coach Amit Soni",
         description: order.program_title,
         order_id: order.order_id,
-        prefill: { email: user.email ?? "" },
+        prefill: { name: normalizedName, email: normalizedEmail },
         theme: { color: "#22d3ee" },
         handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
           setProcessing(true);
@@ -104,6 +124,7 @@ export function ProgramPurchaseButton({ programId, programTitle, priceInr }: { p
             if (verificationError) throw new Error(verificationError.message || "Payment verification failed.");
             const result = verification as VerifyResponse | null;
             if (!result?.success || !result.enrolled) throw new Error("Payment was received, but enrollment could not be confirmed. Please contact support before trying again.");
+            setAccountCreated(Boolean(result.account_created));
             setSuccess(true);
           } catch (verificationError) {
             setError(verificationError instanceof Error ? verificationError.message : "Payment verification failed.");
@@ -111,9 +132,7 @@ export function ProgramPurchaseButton({ programId, programTitle, priceInr }: { p
             setProcessing(false);
           }
         },
-        modal: {
-          ondismiss: () => setProcessing(false),
-        },
+        modal: { ondismiss: () => setProcessing(false) },
       });
       razorpay.open();
     } catch (paymentError) {
@@ -130,11 +149,13 @@ export function ProgramPurchaseButton({ programId, programTitle, priceInr }: { p
       open={open}
       onClose={() => { if (!processing) setOpen(false); }}
       title={success ? "Program unlocked" : `Purchase ${programTitle}`}
-      description={success ? "Your payment has been verified and program access is now active." : "Complete the secure Razorpay checkout to unlock every course in this program."}
+      description={success ? "Your payment has been verified and program access is now active." : "You can purchase without an LMS login. Enter your details, then complete the secure Razorpay checkout."}
       context={programTitle}
-      footer={success ? <button type="button" className="learn-primary-button" onClick={() => window.location.assign("/learn/my-learning")}>Go to My Learning</button> : <><button type="button" className="learn-secondary-button" onClick={() => setOpen(false)} disabled={processing}>Cancel</button><button type="button" className="learn-primary-button" onClick={() => void startPayment()} disabled={processing}>{processing ? <><Loader2 size={16} className="animate-spin" /> Processing…</> : <><IndianRupee size={16} /> Pay ₹{Math.round(priceInr).toLocaleString("en-IN")}</>}</button></>}
+      contextLabel="Program"
+      maxWidth="max-w-2xl"
+      footer={success ? <button type="button" className="learn-primary-button" onClick={() => window.location.assign("/learn/login")}>Student Login</button> : <><button type="button" className="learn-secondary-button" onClick={() => setOpen(false)} disabled={processing}>Cancel</button><button type="button" className="learn-primary-button" onClick={() => void startPayment()} disabled={processing}>{processing ? <><Loader2 size={16} className="animate-spin" /> Processing…</> : <><IndianRupee size={16} /> Pay ₹{Math.round(priceInr).toLocaleString("en-IN")}</>}</button></>}
     >
-      {success ? <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-5"><div className="flex items-center gap-3 text-emerald-300"><CheckCircle2 size={22} /><span className="font-semibold">Payment verified successfully</span></div><p className="mt-3 text-sm leading-6 text-slate-400">You now have access to all published courses inside {programTitle}.</p></div> : <div className="space-y-4"><div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4"><span className="text-sm text-slate-400">Program access</span><span className="font-bold text-white">₹{Math.round(priceInr).toLocaleString("en-IN")}</span></div><div className="flex gap-3 rounded-xl border border-cyan-400/15 bg-cyan-400/5 p-4 text-xs leading-5 text-slate-400"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-cyan-300" /><span>Payment is processed securely by Razorpay. Your enrollment is granted only after the server verifies the payment.</span></div>{error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm leading-6 text-red-300">{error}</div>}</div>}
+      {success ? <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-5"><div className="flex items-center gap-3 text-emerald-300"><CheckCircle2 size={22} /><span className="font-semibold">Payment verified successfully</span></div><p className="mt-3 text-sm leading-6 text-slate-400">You now have access to all published courses inside {programTitle}.</p>{accountCreated&&<p className="mt-3 text-sm leading-6 text-slate-300">An LMS account has been created for <strong className="text-white">{email}</strong>. Use Student Login and choose Forgot Password to set your password.</p>}</div> : <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><label className="block"><span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Full name</span><input value={fullName} onChange={e=>setFullName(e.target.value)} className="learn-input w-full" placeholder="Amit Soni" autoComplete="name" disabled={processing}/></label><label className="block"><span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Email</span><input type="email" value={email} onChange={e=>setEmail(e.target.value)} className="learn-input w-full" placeholder="you@example.com" autoComplete="email" disabled={processing}/></label></div><div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4"><span className="text-sm text-slate-400">Program access</span><span className="font-bold text-white">₹{Math.round(priceInr).toLocaleString("en-IN")}</span></div><div className="flex gap-3 rounded-xl border border-cyan-400/15 bg-cyan-400/5 p-4 text-xs leading-5 text-slate-400"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-cyan-300" /><span>Payment is processed securely by Razorpay. Your enrollment is granted only after the server verifies the payment.</span></div>{error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm leading-6 text-red-300">{error}</div>}</div>}
     </LearnModal>
   </>;
 }
