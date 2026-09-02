@@ -6,6 +6,7 @@ export function LearnModal({
   onClose,
   title,
   description,
+  context,
   children,
   footer,
   maxWidth = "max-w-xl",
@@ -14,6 +15,7 @@ export function LearnModal({
   onClose: () => void;
   title: string;
   description?: string;
+  context?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
   maxWidth?: string;
@@ -43,6 +45,12 @@ export function LearnModal({
             <div className="learn-eyebrow">Learning Hub</div>
             <h2 id="learn-modal-title" className="mt-1 text-xl font-bold tracking-tight">{title}</h2>
             {description && <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>}
+            {context && (
+              <div className="mt-3 inline-flex max-w-full items-center gap-2 rounded-lg border border-cyan-300/20 bg-cyan-300/[.07] px-3 py-2 text-xs">
+                <span className="font-bold uppercase tracking-[.14em] text-cyan-300">Course</span>
+                <span className="truncate font-semibold text-slate-100">{context}</span>
+              </div>
+            )}
           </div>
           <button type="button" onClick={onClose} className="learn-modal-close" aria-label="Close dialog">
             <X size={18} />
