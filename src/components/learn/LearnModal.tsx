@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export function LearnModal({
@@ -22,8 +23,6 @@ export function LearnModal({
   footer?: React.ReactNode;
   maxWidth?: string;
 }) {
-  // Keep the latest close handler available without making the modal lifecycle
-  // effect re-run every time the parent re-renders (for example, on each keystroke).
   const onCloseRef = useRef(onClose);
 
   useEffect(() => {
@@ -32,21 +31,36 @@ export function LearnModal({
 
   useEffect(() => {
     if (!open) return;
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onCloseRef.current();
     };
+
     const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    // Lock the page without removing its scrollbar space, preventing the page
+    // underneath the modal from shifting when the dialog opens.
     document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
     document.addEventListener("keydown", onKeyDown);
+
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  // The modal is rendered at document.body level. This is important because
+  // LearnModal can be used inside cards/containers with overflow:hidden or
+  // CSS transforms; rendering there can clip or reposition a fixed overlay.
+  return createPortal(
     <div className="learn-modal-root" role="presentation">
       <button type="button" className="learn-modal-backdrop" aria-label="Close dialog" onClick={onClose} />
       <div className={`learn-modal-panel ${maxWidth}`} role="dialog" aria-modal="true" aria-labelledby="learn-modal-title">
@@ -69,6 +83,7 @@ export function LearnModal({
         <div className="learn-modal-body">{children}</div>
         {footer && <div className="learn-modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
