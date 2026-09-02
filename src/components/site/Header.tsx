@@ -9,7 +9,7 @@ const NAV = [
   { label: "Experience", href: "#experience" },
   { label: "Skills", href: "#skills" },
   { label: "Workshops", href: "#workshops" },
-  { label: "Courses", href: "#courses" },
+  { label: "Courses", href: "/courses" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -42,7 +42,7 @@ export function Header() {
             </a>
           ))}
           <a href="#contact" className="btn-base btn-outline-soft">Book a Free Call</a>
-          <a href="#courses" className="btn-base btn-cyan">Explore Courses</a>
+          <a href="/courses" className="btn-base btn-cyan">Explore Courses</a>
           <a href={LEARN_URL} target="_blank" rel="noreferrer" className="btn-base btn-violet">
             Student Login <ExternalLink className="h-3.5 w-3.5" />
           </a>
@@ -64,7 +64,7 @@ export function Header() {
             ))}
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
               <a href="#contact" onClick={() => setOpen(false)} className="btn-base btn-outline-soft">Book a Free Call</a>
-              <a href="#courses" onClick={() => setOpen(false)} className="btn-base btn-cyan">Explore Courses</a>
+              <a href="/courses" onClick={() => setOpen(false)} className="btn-base btn-cyan">Explore Courses</a>
               <a href={LEARN_URL} target="_blank" rel="noreferrer" className="btn-base btn-violet">Student Login</a>
             </div>
             <a href={LINKEDIN_URL} target="_blank" rel="noreferrer" className="btn-base btn-outline-soft mt-1">Connect on LinkedIn</a>
