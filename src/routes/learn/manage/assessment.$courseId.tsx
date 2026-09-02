@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, BookOpen, ClipboardCheck } from "lucide-react";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
+import { AssessmentResultsPanel } from "@/components/learn/AssessmentResultsPanel";
 import { AssessmentSurface } from "@/components/learn/AssessmentSurface";
 
 export const Route = createFileRoute("/learn/manage/assessment/$courseId")({ component: AssessmentManager });
@@ -17,5 +18,6 @@ function AssessmentManager() {
       <Link to="/learn/manage/assessment/$courseId" params={{ courseId }} className="learn-primary-button"><ClipboardCheck size={16}/>Assessment</Link>
     </div>
     <AssessmentSurface pathname={`/learn/manage/course-content/${courseId}`} isAdmin />
+    <AssessmentResultsPanel courseId={courseId} />
   </LearnShell>;
 }
