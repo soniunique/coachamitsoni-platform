@@ -91,6 +91,7 @@ export async function sendProgramPaymentConfirmation(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${resendApiKey}`,
+        "Idempotency-Key": `program-payment-confirmation/${order.id}`,
       },
       body: JSON.stringify({
         from,
@@ -98,7 +99,6 @@ export async function sendProgramPaymentConfirmation(
         subject: `Payment successful — ${programTitle}`,
         html,
         text,
-        idempotency_key: `program-payment-confirmation/${order.id}`,
       }),
     });
 
