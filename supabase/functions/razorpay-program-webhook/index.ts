@@ -1,0 +1,174 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "content-type, x-razorpay-signature, x-razorpay-event-id",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function hmacSha256(message: string, secret: string) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(message),
+  );
+  return Array.from(new Uint8Array(signature))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  const webhookSecret = Deno.env.get("RAZORPAY_WEBHOOK_SECRET");
+  if (!webhookSecret) return json({ error: "Webhook service is not configured." }, 500);
+
+  const signature = req.headers.get("X-Razorpay-Signature");
+  const eventId = req.headers.get("X-Razorpay-Event-Id");
+  if (!signature || !eventId) {
+    return json({ error: "Missing Razorpay webhook signature or event id." }, 400);
+  }
+
+  const rawBody = await req.text();
+  const expectedSignature = await hmacSha256(rawBody, webhookSecret);
+  if (expectedSignature !== signature) {
+    return json({ error: "Invalid webhook signature." }, 401);
+  }
+
+  try {
+    const payload = JSON.parse(rawBody);
+    const eventType = typeof payload?.event === "string" ? payload.event : "";
+    const orderEntity = payload?.payload?.order?.entity;
+    const paymentEntity = payload?.payload?.payment?.entity;
+    const providerOrderId = orderEntity?.id ?? paymentEntity?.order_id ?? null;
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const { error: eventInsertError } = await supabase
+      .from("razorpay_webhook_events")
+      .insert({
+        event_id: eventId,
+        event_type: eventType || "unknown",
+        provider_order_id: providerOrderId,
+      });
+
+    if (eventInsertError) {
+      if (eventInsertError.code === "23505") {
+        return json({ received: true, duplicate: true });
+      }
+      console.error("webhook event insert error", eventInsertError);
+      return json({ error: "Unable to record webhook event." }, 500);
+    }
+
+    const { data: order, error: orderError } = await supabase
+      .from("program_orders")
+      .select("id,user_id,program_id,amount_inr,currency,status,provider_order_id,provider_payment_id")
+      .eq("provider", "razorpay")
+      .eq("provider_order_id", providerOrderId ?? "")
+      .maybeSingle();
+
+    if (orderError) {
+      await supabase.from("razorpay_webhook_events").update({ status: "failed", error_message: orderError.message }).eq("event_id", eventId);
+      return json({ error: "Unable to locate payment order." }, 500);
+    }
+
+    if (!order) {
+      await supabase.from("razorpay_webhook_events").update({ status: "ignored", processed_at: new Date().toISOString() }).eq("event_id", eventId);
+      return json({ received: true, ignored: true });
+    }
+
+    if (eventType === "payment.failed") {
+      await supabase.from("program_orders").update({ status: "failed" }).eq("id", order.id).in("status", ["created", "failed"]);
+      await supabase.from("razorpay_webhook_events").update({ status: "processed", processed_at: new Date().toISOString() }).eq("event_id", eventId);
+      return json({ received: true, processed: true });
+    }
+
+    if (eventType !== "order.paid" && eventType !== "payment.captured") {
+      await supabase.from("razorpay_webhook_events").update({ status: "ignored", processed_at: new Date().toISOString() }).eq("event_id", eventId);
+      return json({ received: true, ignored: true });
+    }
+
+    const paymentId = paymentEntity?.id;
+    const paymentOrderId = paymentEntity?.order_id;
+    const paymentAmount = Number(paymentEntity?.amount);
+    const paymentCurrency = paymentEntity?.currency;
+    const paymentStatus = paymentEntity?.status;
+
+    if (!paymentId || paymentOrderId !== order.provider_order_id || paymentCurrency !== "INR" || paymentAmount !== Number(order.amount_inr) * 100 || (paymentStatus !== "captured" && paymentStatus !== undefined)) {
+      await supabase.from("razorpay_webhook_events").update({ status: "failed", error_message: "Payment payload did not match the stored order." }).eq("event_id", eventId);
+      return json({ error: "Payment payload did not match the stored order." }, 400);
+    }
+
+    const now = new Date().toISOString();
+    const { error: paidError } = await supabase
+      .from("program_orders")
+      .update({ status: "paid", provider_payment_id: paymentId, paid_at: now })
+      .eq("id", order.id)
+      .neq("status", "refunded");
+
+    if (paidError) {
+      await supabase.from("razorpay_webhook_events").update({ status: "failed", error_message: paidError.message }).eq("event_id", eventId);
+      return json({ error: "Unable to mark payment as paid." }, 500);
+    }
+
+    const { data: existingEnrollment, error: enrollmentLookupError } = await supabase
+      .from("program_enrollments")
+      .select("id,status")
+      .eq("user_id", order.user_id)
+      .eq("program_id", order.program_id)
+      .maybeSingle();
+
+    if (enrollmentLookupError) {
+      await supabase.from("razorpay_webhook_events").update({ status: "failed", error_message: enrollmentLookupError.message }).eq("event_id", eventId);
+      return json({ error: "Unable to check program enrollment." }, 500);
+    }
+
+    if (!existingEnrollment) {
+      const { error: enrollmentInsertError } = await supabase
+        .from("program_enrollments")
+        .insert({ user_id: order.user_id, program_id: order.program_id, status: "active", enrolled_at: now });
+      if (enrollmentInsertError) {
+        await supabase.from("razorpay_webhook_events").update({ status: "failed", error_message: enrollmentInsertError.message }).eq("event_id", eventId);
+        return json({ error: "Payment recorded, but enrollment could not be created yet." }, 500);
+      }
+    } else if (existingEnrollment.status === "cancelled") {
+      const { error: enrollmentUpdateError } = await supabase
+        .from("program_enrollments")
+        .update({ status: "active", enrolled_at: now, completed_at: null })
+        .eq("id", existingEnrollment.id);
+      if (enrollmentUpdateError) {
+        await supabase.from("razorpay_webhook_events").update({ status: "failed", error_message: enrollmentUpdateError.message }).eq("event_id", eventId);
+        return json({ error: "Payment recorded, but enrollment could not be restored yet." }, 500);
+      }
+    }
+
+    await supabase
+      .from("razorpay_webhook_events")
+      .update({ status: "processed", processed_at: now })
+      .eq("event_id", eventId);
+
+    return json({ received: true, processed: true, program_id: order.program_id });
+  } catch (error) {
+    console.error("razorpay-program-webhook error", error);
+    return json({ error: error instanceof Error ? error.message : "Unexpected webhook error." }, 500);
+  }
+});
