@@ -22,22 +22,26 @@ function Certificates() {
       setLoading(true); setError("");
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setError("Please sign in to view your certificates."); setLoading(false); return; }
-      const [{ data: rows, error: ce }, { data: profile }, { data: enrolments, error: ee }] = await Promise.all([
-        supabase.from("course_certificates").select("id,certificate_number,issued_at,course_id,courses(title,slug)").order("issued_at", { ascending: false }),
+
+      const [{ data: profile }, { data: enrolments, error: ee }] = await Promise.all([
         supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
         supabase.from("program_enrollments").select("program_id,status").eq("user_id", user.id).in("status", ["active", "completed"]),
       ]);
-      if (ce) { setError(ce.message); setLoading(false); return; }
       if (ee) { setError(ee.message); setLoading(false); return; }
       if (profile?.full_name) setName(profile.full_name);
-      const certs = ((rows || []) as unknown as Certificate[]);
-      const programIds = (enrolments || []).map((e) => e.program_id);
-      const courseIds = certs.map((c) => c.course_id);
+
+      const programIds = [...new Set((enrolments || []).map((e) => e.program_id))];
       const nextEligibility: Record<string, Eligibility> = {};
       const courseDetails: Record<string, { title: string; slug: string }> = {};
-      if (courseIds.length) {
-        const { data: courseRows, error: courseError } = await supabase.from("courses").select("id,title,slug,program_id,course_modules(course_lessons(id,lesson_progress(user_id,completed)))").in("id", courseIds);
+
+      if (programIds.length) {
+        const { data: courseRows, error: courseError } = await supabase
+          .from("courses")
+          .select("id,title,slug,program_id,course_modules(course_lessons(id,lesson_progress(user_id,completed)))")
+          .eq("status", "published")
+          .in("program_id", programIds);
         if (courseError) { setError(courseError.message); setLoading(false); return; }
+
         for (const course of (courseRows || []) as any[]) {
           courseDetails[course.id] = { title: course.title, slug: course.slug };
           const enrolled = programIds.includes(course.program_id);
@@ -46,9 +50,31 @@ function Certificates() {
           const progress = lessons.length ? Math.round((completed / lessons.length) * 100) : 0;
           nextEligibility[course.id] = { enrolled, progress };
         }
+
+        // Issue the certificate server-side once the student meets the completion
+        // and, where configured, assessment requirements. Existing certificates
+        // are returned unchanged, so revisiting this page is idempotent.
+        await Promise.all((courseRows || []).map(async (course: any) => {
+          const { error: issueError } = await supabase.rpc("issue_course_certificate", { p_course_id: course.id });
+          // Courses that are below the eligibility threshold are expected to fail
+          // this check; do not turn those normal eligibility states into a page error.
+          if (issueError && !/at least 80|passing assessment|not enrolled/i.test(issueError.message)) {
+            console.error("Certificate issuance check failed", course.id, issueError);
+          }
+        }));
       }
+
+      const { data: rows, error: ce } = await supabase
+        .from("course_certificates")
+        .select("id,certificate_number,issued_at,course_id,courses(title,slug)")
+        .order("issued_at", { ascending: false });
+      if (ce) { setError(ce.message); setLoading(false); return; }
+
+      const certs = ((rows || []) as unknown as Certificate[]);
       setEligibility(nextEligibility);
-      setCertificates(certs.filter((c) => nextEligibility[c.course_id]?.enrolled && nextEligibility[c.course_id]?.progress >= 80).map((c) => ({ ...c, course: courseDetails[c.course_id] || c.course })));
+      setCertificates(certs
+        .filter((c) => nextEligibility[c.course_id]?.enrolled && nextEligibility[c.course_id]?.progress >= 80)
+        .map((c) => ({ ...c, course: courseDetails[c.course_id] || c.course })));
       setLoading(false);
     }
     void load();
