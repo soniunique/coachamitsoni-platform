@@ -28,8 +28,9 @@ Completed so far:
 - Added Student/Admin database security regression tests under `supabase/tests/database/student_admin_security.test.sql`.
 - Audited active Edge Functions: user-facing functions require JWT authentication; external Razorpay webhooks use `verify_jwt=false` with mandatory Razorpay signature verification.
 - Audited private `course-content` Storage bucket and its Student/Admin policies.
+- Completed production configuration review: payment/webhook JWT settings are explicitly represented in `supabase/config.toml`, sensitive provider credentials are read only from Edge Function environment secrets, and no Razorpay secret, Resend API key, or Supabase service-role credential is present in the Git repository.
+- Completed production payment/refund/email operational verification, including successful payment confirmation email delivery and a successful full-refund lifecycle test.
+- Completed Student/Admin end-to-end regression testing across the launch checklist.
 
 Remaining Phase 2 work:
-- Complete production secret/configuration review and final Edge Function review.
-- Run the full database security test suite in CI/production-equivalent tooling.
-- Complete end-to-end Student/Admin regression testing before launch sign-off.
+- Run the full database security test suite in CI/production-equivalent tooling. The pgTAP test file is committed, while equivalent live SQL security assertions have already been executed successfully; the remaining item is execution through the repository's full test runner/tooling.
