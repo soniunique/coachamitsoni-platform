@@ -30,14 +30,24 @@ jobs:
         with:
           version: latest
 
-      - name: Start local Supabase
-        run: supabase start
+      - name: Start local Supabase for database tests
+        run: |
+          cp supabase/config.toml supabase/config.toml.ci-backup
+          printf 'project_id = "mszzavokfsayxxfreono"\n' > supabase/config.toml
+          supabase start
 
       - name: Reset local database from migrations
         run: supabase db reset
 
       - name: Run database security tests
         run: supabase test db
+
+      - name: Restore Supabase configuration
+        if: always()
+        run: |
+          if [ -f supabase/config.toml.ci-backup ]; then
+            mv supabase/config.toml.ci-backup supabase/config.toml
+          fi
 
       - name: Stop local Supabase
         if: always()
