@@ -74,7 +74,10 @@ begin
   return jsonb_build_object('enabled',true,'assessment',jsonb_build_object('id',v_assessment.id,'course_id',v_assessment.course_id,'title',v_assessment.title,'instructions',v_assessment.instructions,'passing_percentage',v_assessment.passing_percentage,'max_attempts',v_assessment.max_attempts),'questions',v_questions);
 end; $$;
 
-create or replace function public.submit_course_assessment(p_assessment_id uuid, p_answers jsonb)
+-- A legacy migration created the same signature with a different parameter
+-- name. PostgreSQL does not permit CREATE OR REPLACE to rename input params.
+drop function if exists public.submit_course_assessment(uuid, jsonb);
+create function public.submit_course_assessment(p_assessment_id uuid, p_answers jsonb)
 returns jsonb language plpgsql security definer set search_path=public as $$
 declare a public.course_assessments%rowtype; q record; v_course_id uuid; v_program_id uuid; v_attempts integer; v_attempt_no integer; v_total_points numeric := 0; v_earned_points numeric := 0; v_score numeric := 0; v_passed boolean := false; v_answer text;
 begin
