@@ -9,7 +9,7 @@ verify_jwt = false
 verify_jwt = false
 
 # Razorpay sends these events without a Supabase Authorization header.
-# The webhook handler verifies Razorpay's signature before processing events.
+# The webhook handlers verify Razorpay's signature before processing events.
 [functions.razorpay-program-webhook]
 verify_jwt = false
 
@@ -25,4 +25,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.send-learning-email]
+verify_jwt = true
+
+[functions.send-workshop-registration-email]
 verify_jwt = true
