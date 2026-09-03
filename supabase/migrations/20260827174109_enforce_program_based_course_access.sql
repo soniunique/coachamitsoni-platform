@@ -7,6 +7,25 @@ alter table public.courses
 create index if not exists courses_program_id_idx
   on public.courses(program_id);
 
+create or replace function public.is_program_enrolled(p_program_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_admin() or exists (
+    select 1
+    from public.program_enrollments pe
+    where pe.user_id = auth.uid()
+      and pe.program_id = p_program_id
+      and pe.status in ('active','completed')
+  );
+$$;
+
+revoke all on function public.is_program_enrolled(uuid) from public, anon;
+grant execute on function public.is_program_enrolled(uuid) to authenticated;
+
 drop policy if exists courses_public_read on public.courses;
 create policy courses_program_enrolled_read on public.courses
   for select to authenticated
