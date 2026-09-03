@@ -1,0 +1,44 @@
+name: Database Security Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/database-security.yml'
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/database-security.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pgtap-security:
+    name: pgTAP security suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Reset local database from migrations
+        run: supabase db reset
+
+      - name: Run database security tests
+        run: supabase test db
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop
