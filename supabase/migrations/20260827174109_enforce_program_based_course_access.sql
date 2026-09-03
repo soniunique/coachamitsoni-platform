@@ -1,3 +1,12 @@
+-- The program relationship is required by the access policies below.
+-- Keep this migration self-contained so a clean migration reset does not
+-- depend on a dashboard-only migration that may not exist in the repository.
+alter table public.courses
+  add column if not exists program_id uuid references public.programs(id) on delete set null;
+
+create index if not exists courses_program_id_idx
+  on public.courses(program_id);
+
 drop policy if exists courses_public_read on public.courses;
 create policy courses_program_enrolled_read on public.courses
   for select to authenticated
