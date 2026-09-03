@@ -18,7 +18,7 @@ Completed:
 
 ## Phase 2 — Security Hardening
 
-Completed so far:
+Completed:
 - Application role model normalized to **Student + Admin only**. Coach is represented operationally by the Admin role; there is no separate Coach/Instructor/Staff application role.
 - Removed the legacy `is_staff()` authorization helper and replaced remaining live staff authorization policies with explicit Admin authorization.
 - Tightened Data API grants and RLS for sensitive payment/refund/email/webhook data.
@@ -31,6 +31,8 @@ Completed so far:
 - Completed production configuration review: payment/webhook JWT settings are explicitly represented in `supabase/config.toml`, sensitive provider credentials are read only from Edge Function environment secrets, and no Razorpay secret, Resend API key, or Supabase service-role credential is present in the Git repository.
 - Completed production payment/refund/email operational verification, including successful payment confirmation email delivery and a successful full-refund lifecycle test.
 - Completed Student/Admin end-to-end regression testing across the launch checklist.
+- **Automated database security test suite is GREEN:** GitHub Actions successfully connected using the encrypted `SUPABASE_DB_URL` secret and executed the pgTAP security suite against the production database schema.
 
-Remaining Phase 2 work:
-- Run the full database security test suite in CI/production-equivalent tooling. The pgTAP test file is committed, while equivalent live SQL security assertions have already been executed successfully; the remaining item is execution through the repository's full test runner/tooling.
+## Phase 2 — Remaining / Follow-up Engineering
+
+- Reconcile and capture the historical production migration chain into a clean, reproducible repository baseline. This is a migration-management task and is separate from the now-passing production-schema security test suite.
