@@ -16,7 +16,8 @@ create table if not exists public.program_enrollments (
   enrolled_at timestamptz not null default now(), completed_at timestamptz, unique (user_id, program_id)
 );
 create table if not exists public.program_orders (
-  id uuid primary key default gen_random_uuid(), user_id uuid references auth.users(id) on delete set null, program_id uuid not null references public.programs(id) on delete restrict, amount_inr integer not null check (amount_inr >= 0),
+  id uuid primary key default gen_random_uuid(), user_id uuid references auth.users(id) on delete set null,
+  program_id uuid not null references public.programs(id) on delete restrict, amount_inr integer not null check (amount_inr >= 0),
   currency text not null default 'INR', status text not null default 'created' check (status in ('created','paid','failed','cancelled','refund_pending','refunded')),
   provider text not null default 'razorpay', provider_order_id text unique, provider_payment_id text unique,
   created_at timestamptz not null default now(), paid_at timestamptz, metadata jsonb not null default '{}'::jsonb
