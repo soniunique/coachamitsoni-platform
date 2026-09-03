@@ -1,1 +1,28 @@
 project_id = "mszzavokfsayxxfreono"
+
+# Payment checkout endpoints accept guest customers, so they cannot require
+# a Supabase user JWT. The handlers authenticate the payment flow themselves.
+[functions.create-program-payment-order]
+verify_jwt = false
+
+[functions.verify-program-payment]
+verify_jwt = false
+
+# Razorpay sends these events without a Supabase Authorization header.
+# The webhook handler verifies Razorpay's signature before processing events.
+[functions.razorpay-program-webhook]
+verify_jwt = false
+
+[functions.razorpay-program-webhook-v2]
+verify_jwt = false
+
+# These functions are called by authenticated LMS users/admins.
+# verify_jwt remains explicitly enabled for production clarity.
+[functions.issue-program-refund]
+verify_jwt = true
+
+[functions.get-student-emails]
+verify_jwt = true
+
+[functions.send-learning-email]
+verify_jwt = true
