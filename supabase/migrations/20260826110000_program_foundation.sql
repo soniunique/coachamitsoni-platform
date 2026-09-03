@@ -41,6 +41,17 @@ create table if not exists public.program_orders (
   metadata jsonb not null default '{}'::jsonb
 );
 
+alter table public.courses
+  add column if not exists access_type text not null default 'free',
+  add column if not exists duration_minutes integer,
+  add column if not exists program_id uuid references public.programs(id) on delete set null,
+  add column if not exists assessment_enabled boolean not null default false,
+  add column if not exists assessment_required boolean not null default false;
+
+alter table public.courses drop constraint if exists courses_access_type_check;
+alter table public.courses add constraint courses_access_type_check
+  check (access_type = any (array['free'::text,'paid'::text,'service'::text]));
+
 alter table public.programs enable row level security;
 alter table public.program_enrollments enable row level security;
 alter table public.program_orders enable row level security;
@@ -48,6 +59,7 @@ alter table public.program_orders enable row level security;
 revoke all on public.program_orders from anon, authenticated;
 revoke all on public.program_enrollments from anon, authenticated;
 
+create index if not exists courses_program_id_idx on public.courses(program_id);
 create index if not exists program_enrollments_user_idx on public.program_enrollments(user_id);
 create index if not exists program_enrollments_program_idx on public.program_enrollments(program_id);
 create index if not exists program_orders_program_idx on public.program_orders(program_id);
