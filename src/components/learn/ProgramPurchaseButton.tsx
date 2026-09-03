@@ -24,7 +24,7 @@ export function ProgramPurchaseButton({ programId, programTitle, priceInr }: { p
       const order = data as OrderResponse | null;
       if (!order?.order_id || !order.key_id || !order.amount) throw new Error("The payment order could not be created.");
       await loadRazorpay(); if (!window.Razorpay) throw new Error("Secure payment checkout is unavailable right now.");
-      const razorpay = new window.Razorpay({ key: order.key_id, amount: order.amount, currency: order.currency, name: "Coach Amit Soni", description: order.program_title, order_id: order.order_id, prefill: { name: normalizedName, email: normalizedEmail, contact: `+91${normalizedMobile}` }, theme: { color: "#22d3ee" }, handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
+      const razorpay = new window.Razorpay({ key: order.key_id, amount: order.amount, currency: order.currency, name: "Coach Amit Soni", description: order.program_title, order_id: order.order_id, prefill: { name: normalizedName, email: normalizedEmail, contact: normalizedMobile }, readonly: { contact: false }, theme: { color: "#22d3ee" }, handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
         setProcessing(true); setError("");
         try {
           const { data: verification, error: verificationError } = await supabase.functions.invoke("verify-program-payment", { body: { program_id: programId, razorpay_payment_id: response.razorpay_payment_id, razorpay_order_id: response.razorpay_order_id, razorpay_signature: response.razorpay_signature } });
