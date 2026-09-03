@@ -73,5 +73,13 @@ drop trigger if exists audit_admin_workshops on public.workshops;
 create trigger audit_admin_workshops after insert or update or delete on public.workshops for each row execute function public.audit_admin_mutation();
 drop trigger if exists audit_admin_workshop_registrations on public.workshop_registrations;
 create trigger audit_admin_workshop_registrations after insert or update or delete on public.workshop_registrations for each row execute function public.audit_admin_mutation();
-drop trigger if exists audit_admin_announcements on public.announcements;
-create trigger audit_admin_announcements after insert or update or delete on public.announcements for each row execute function public.audit_admin_mutation();
+
+-- Announcements are provisioned separately in some environments, so keep the migration chain portable.
+do $$
+begin
+  if to_regclass('public.announcements') is not null then
+    execute 'drop trigger if exists audit_admin_announcements on public.announcements';
+    execute 'create trigger audit_admin_announcements after insert or update or delete on public.announcements for each row execute function public.audit_admin_mutation()';
+  end if;
+end;
+$$;
