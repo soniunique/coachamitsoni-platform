@@ -78,7 +78,7 @@ function Registrations() {
         const activeCount = rows.filter((row) => row.status !== "cancelled").length;
         return <section key={workshop.id} className="learn-card p-6">
           <div className="flex flex-col gap-3 border-b border-white/10 pb-5 md:flex-row md:items-center md:justify-between">
-            <div><div className="learn-eyebrow">{workshop.status}</div><h2 className="mt-2 text-xl font-bold">{workshop.title}</h2></div>
+            <div><span className={`learn-status-pill learn-status-${workshop.status.replace(/_/g,"-")}`}>{workshop.status}</span><h2 className="mt-2 text-xl font-bold">{workshop.title}</h2></div>
             <div className="flex flex-wrap gap-2 text-xs text-slate-400">
               {workshop.starts_at && <span className="learn-meta"><CalendarDays size={14} />{new Date(workshop.starts_at).toLocaleString()}</span>}
               <span className="learn-meta"><Users size={14} />{activeCount} registered</span>
@@ -87,7 +87,7 @@ function Registrations() {
           {!rows.length ? <p className="py-8 text-center text-sm text-slate-400">No registrations yet.</p> : <div className="mt-5 space-y-3">
             {rows.map((row) => <div key={row.id} className="flex flex-col gap-3 rounded-xl border border-white/8 bg-white/[.03] p-4 md:flex-row md:items-center md:justify-between">
               <div><div className="font-medium text-slate-200">{studentName(row.user_id)}</div><div className="mt-1 text-xs text-slate-500">Registered {new Date(row.registered_at).toLocaleString()}</div></div>
-              <div className="flex items-center gap-2"><span className="learn-secondary-button">{row.status}</span>{row.status !== "attended" && row.status !== "cancelled" && <button type="button" disabled={saving === row.id} onClick={() => void updateStatus(row.id, "attended")} className="learn-primary-button">{saving === row.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Mark attended</button>}{row.status !== "cancelled" && row.status !== "attended" && <button type="button" disabled={saving === row.id} onClick={() => void updateStatus(row.id, "cancelled")} className="learn-secondary-button">Cancel</button>}</div>
+              <div className="flex items-center gap-2"><span className={`learn-status-pill learn-status-${row.status.replace(/_/g,"-")}`}>{row.status}</span>{row.status !== "attended" && row.status !== "cancelled" && <button type="button" disabled={saving === row.id} onClick={() => void updateStatus(row.id, "attended")} className="learn-primary-button">{saving === row.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Mark attended</button>}{row.status !== "cancelled" && row.status !== "attended" && <button type="button" disabled={saving === row.id} onClick={() => void updateStatus(row.id, "cancelled")} className="learn-secondary-button">Cancel</button>}</div>
             </div>)}
           </div>}
         </section>;
