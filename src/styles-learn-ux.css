@@ -1,0 +1,64 @@
+/*
+ * STUDENT UX REFINEMENT — 04 September 2026
+ * Intent: small usability refinements that reuse the existing LMS tokens.
+ * No new visual language, layout system, colors, radii, or component shapes.
+ */
+.learn-nav-item:focus-visible,
+.learn-tab:focus-visible,
+.learn-primary-button:focus-visible,
+.learn-secondary-button:focus-visible,
+.learn-icon-button:focus-visible,
+.learn-avatar:focus-visible,
+.learn-menu-button:focus-visible,
+.learn-mobile-close:focus-visible,
+.learn-input:focus-visible {
+  outline: 2px solid rgba(103,232,249,.9);
+  outline-offset: 2px;
+}
+
+.learn-input::placeholder {
+  color: rgba(148,163,184,.78);
+}
+
+.learn-primary-button:disabled,
+.learn-secondary-button:disabled {
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+
+.learn-tab {
+  min-height: 40px;
+}
+
+.learn-status-pill {
+  min-height: 24px;
+}
+
+@media (max-width: 640px) {
+  .learn-tab-list,
+  [role="tablist"] {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .learn-tab {
+    flex: 0 0 auto;
+  }
+
+  .learn-primary-button,
+  .learn-secondary-button {
+    line-height: 1.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learn-tab,
+  .learn-nav-item,
+  .learn-primary-button,
+  .learn-secondary-button,
+  .learn-icon-button,
+  .learn-avatar {
+    transition: none !important;
+  }
+}
