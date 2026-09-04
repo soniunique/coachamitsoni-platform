@@ -1,0 +1,86 @@
+/*
+ * LMS GLOBAL CONSISTENCY AUDIT — 04 September 2026
+ * Scope: presentation consistency only. No data, navigation, or feature behaviour changes.
+ * Loaded after styles-learn.css so these rules form the final site-wide visual layer.
+ */
+
+/* ---------- Shared controls ---------- */
+.learn-app input:not([type="checkbox"]):not([type="radio"]),
+.learn-app select,
+.learn-app textarea{
+  border-color:rgba(255,255,255,.13);
+  background:rgba(255,255,255,.055);
+  color:#e6edf7;
+  outline:none;
+  transition:border-color .18s,box-shadow .18s,background .18s;
+}
+.learn-app input:not([type="checkbox"]):not([type="radio"]):hover,
+.learn-app select:hover,
+.learn-app textarea:hover{border-color:rgba(103,232,249,.32)}
+.learn-app input:not([type="checkbox"]):not([type="radio"]):focus,
+.learn-app select:focus,
+.learn-app textarea:focus{
+  border-color:rgba(103,232,249,.68);
+  box-shadow:0 0 0 3px rgba(103,232,249,.10);
+}
+.learn-app select{min-height:40px;border-radius:10px;padding:8px 36px 8px 12px}
+.learn-app textarea{border-radius:10px}
+.learn-app input[type="checkbox"],
+.learn-app input[type="radio"]{accent-color:#22d3ee}
+
+/* ---------- Semantic action buttons beyond CRUD ---------- */
+.learn-secondary-button:has(svg.lucide-pin),
+.learn-primary-button:has(svg.lucide-pin){
+  color:#a5f3fc;border-color:rgba(34,211,238,.42);background:rgba(8,145,178,.16)
+}
+.learn-secondary-button:has(svg.lucide-pin):hover,
+.learn-primary-button:has(svg.lucide-pin):hover{color:#fff;border-color:rgba(103,232,249,.8);background:rgba(8,145,178,.32)}
+.learn-secondary-button:has(svg.lucide-lock){color:#fde68a;border-color:rgba(245,158,11,.38);background:rgba(180,83,9,.14)}
+.learn-secondary-button:has(svg.lucide-lock):hover{color:#fff;border-color:rgba(251,191,36,.8);background:rgba(180,83,9,.28)}
+.learn-primary-button:has(svg.lucide-send){box-shadow:0 12px 34px -22px rgba(34,211,238,.85),0 8px 26px -20px rgba(139,92,246,.8)}
+
+/* ---------- Consistent compact action clusters ---------- */
+.learn-card .flex.items-center.gap-2:has(.learn-secondary-button){
+  align-items:center;
+  flex-wrap:wrap;
+}
+.learn-card .learn-secondary-button + .learn-secondary-button{margin-left:0}
+
+/* ---------- Selected list items inside two-pane community screens ---------- */
+.learn-card button[aria-selected="true"],
+.learn-card [role="tab"][aria-selected="true"]{
+  color:#fff;
+  background:linear-gradient(135deg,rgba(34,211,238,.13),rgba(139,92,246,.12));
+  box-shadow:inset 3px 0 #22d3ee;
+}
+
+/* ---------- Tables and dense admin lists ---------- */
+.learn-card table button{min-height:34px}
+.learn-card table a:focus-visible,
+.learn-card table button:focus-visible{outline:2px solid rgba(103,232,249,.9);outline-offset:2px}
+
+/* ---------- Empty / helper copy hierarchy ---------- */
+.learn-app .text-slate-500{color:#71839c}
+.learn-app .text-slate-400{color:#9aabc0}
+.learn-app .text-slate-300{color:#b9c7d8}
+
+/* ---------- Consistent disabled treatment ---------- */
+.learn-app button:disabled,
+.learn-app a[aria-disabled="true"]{
+  cursor:not-allowed;
+}
+.learn-app button:disabled .lucide{opacity:.6}
+
+/* ---------- Mobile: controls and tab groups remain usable ---------- */
+@media(max-width:640px){
+  .learn-app select{width:100%;min-height:42px}
+  .learn-app input:not([type="checkbox"]):not([type="radio"]),
+  .learn-app textarea{font-size:16px}
+  .learn-card .flex.items-center.gap-2:has(.learn-secondary-button){gap:6px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .learn-app input,
+  .learn-app select,
+  .learn-app textarea{transition:none}
+}
