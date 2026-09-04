@@ -50,7 +50,7 @@ function Certificates() {
 
       const { data: rows, error: ce } = await supabase
         .from("course_certificates")
-        .select("id,certificate_number,issued_at,course_id,courses(title,slug)")
+        .select("id,certificate_number,issued_at,course_id,course:courses(title,slug)")
         .order("issued_at", { ascending: false });
       if (ce) { setError(ce.message); setLoading(false); return; }
 
