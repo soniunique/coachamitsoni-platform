@@ -5,13 +5,11 @@ import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
 import { supabase } from "@/integrations/supabase/client";
 
 type Certificate = { id: string; certificate_number: string; issued_at: string; course_id: string; course: { title: string; slug: string } | null };
-type Eligibility = { enrolled: boolean; progress: number };
 
 export const Route = createFileRoute("/learn/certificates")({ component: Certificates });
 
 function Certificates() {
   const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [eligibility, setEligibility] = useState<Record<string, Eligibility>>({});
   const [name, setName] = useState("Learner");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -31,33 +29,19 @@ function Certificates() {
       if (profile?.full_name) setName(profile.full_name);
 
       const programIds = [...new Set((enrolments || []).map((e) => e.program_id))];
-      const nextEligibility: Record<string, Eligibility> = {};
-      const courseDetails: Record<string, { title: string; slug: string }> = {};
 
       if (programIds.length) {
         const { data: courseRows, error: courseError } = await supabase
           .from("courses")
-          .select("id,title,slug,program_id,course_modules(course_lessons(id,lesson_progress(user_id,completed)))")
+          .select("id,title,slug,program_id")
           .eq("status", "published")
           .in("program_id", programIds);
         if (courseError) { setError(courseError.message); setLoading(false); return; }
 
-        for (const course of (courseRows || []) as any[]) {
-          courseDetails[course.id] = { title: course.title, slug: course.slug };
-          const enrolled = programIds.includes(course.program_id);
-          const lessons = (course.course_modules || []).flatMap((m: any) => m.course_lessons || []);
-          const completed = lessons.filter((lesson: any) => (lesson.lesson_progress || []).some((p: any) => p.user_id === user.id && p.completed === true)).length;
-          const progress = lessons.length ? Math.round((completed / lessons.length) * 100) : 0;
-          nextEligibility[course.id] = { enrolled, progress };
-        }
-
-        // Issue the certificate server-side once the student meets the completion
-        // and, where configured, assessment requirements. Existing certificates
-        // are returned unchanged, so revisiting this page is idempotent.
+        // The server-side RPC remains the source of truth for issuance eligibility.
+        // Existing certificates are never revoked or hidden by a later progress reset.
         await Promise.all((courseRows || []).map(async (course: any) => {
           const { error: issueError } = await supabase.rpc("issue_course_certificate", { p_course_id: course.id });
-          // Courses that are below the eligibility threshold are expected to fail
-          // this check; do not turn those normal eligibility states into a page error.
           if (issueError && !/at least 80|passing assessment|not enrolled/i.test(issueError.message)) {
             console.error("Certificate issuance check failed", course.id, issueError);
           }
@@ -70,11 +54,9 @@ function Certificates() {
         .order("issued_at", { ascending: false });
       if (ce) { setError(ce.message); setLoading(false); return; }
 
-      const certs = ((rows || []) as unknown as Certificate[]);
-      setEligibility(nextEligibility);
-      setCertificates(certs
-        .filter((c) => nextEligibility[c.course_id]?.enrolled && nextEligibility[c.course_id]?.progress >= 80)
-        .map((c) => ({ ...c, course: courseDetails[c.course_id] || c.course })));
+      // An issued credential is historical evidence of achievement. It must remain
+      // visible and printable even when the student later retakes or resets a course.
+      setCertificates((rows || []) as unknown as Certificate[]);
       setLoading(false);
     }
     void load();
@@ -82,8 +64,6 @@ function Certificates() {
 
   async function printCertificate(certificate: Certificate) {
     if (printing) return;
-    const current = eligibility[certificate.course_id];
-    if (!current?.enrolled || current.progress < 80) { setError("This certificate is available for printing only when you are enrolled in the course and have completed at least 80% of it."); return; }
     setPrinting(certificate.id);
 
     const escapeXml = (value: string) => value
@@ -211,5 +191,5 @@ function Certificates() {
     window.setTimeout(() => { popup.print(); setPrinting(null); }, 500);
   }
 
-  return <LearnShell><div className="mb-4"><Link to="/learn" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={15} />Learning hub</Link></div><SectionHeader eyebrow="Achievements" title="My certificates" description="Certificates are available only for courses you are enrolled in and have completed to at least 80%." />{loading ? <div className="learn-card flex items-center gap-3 p-6 text-sm text-slate-400"><Loader2 size={18} className="animate-spin" />Checking certificate eligibility...</div> : error ? <div className="learn-card p-6 text-sm text-red-300">{error}</div> : !certificates.length ? <div className="learn-card p-8 text-center"><Award className="mx-auto text-cyan-300" size={36} /><h2 className="mt-4 text-lg font-bold">No certificates yet</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-400">Certificates appear here once you are enrolled in the course and have completed at least 80% of it.</p><Link to="/learn/courses" className="learn-primary-button mt-5 inline-flex"><BookOpen size={15} />Browse courses</Link></div> : <div className="grid gap-5 lg:grid-cols-2">{certificates.map((certificate) => <article key={certificate.id} className="relative overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950/40 shadow-lg shadow-cyan-950/20" id={`certificate-${certificate.id}`}><div className="pointer-events-none absolute -left-16 -top-12 h-32 w-72 -rotate-12 rounded-full bg-gradient-to-r from-blue-950 via-cyan-600 to-amber-400 opacity-80" /><div className="pointer-events-none absolute -bottom-16 -right-16 h-32 w-72 -rotate-12 rounded-full bg-gradient-to-r from-amber-400 via-cyan-600 to-blue-950 opacity-80" /><div className="relative p-7 text-center"><div className="text-xs font-bold uppercase tracking-[.25em] text-cyan-300">Certificate of Completion</div><div className="mx-auto mt-4 flex h-16 w-16 items-center justify-center rounded-full border border-amber-300/60 bg-amber-300/10 shadow-[0_0_25px_rgba(251,191,36,.12)]"><Star className="text-amber-300" size={29} fill="currentColor" /></div><h2 className="mt-4 text-2xl font-bold text-white">{name}</h2><p className="mt-2 text-sm text-slate-400">has successfully completed</p><div className="mt-2 text-xl font-bold text-cyan-200">{certificate.course?.title || "Course"}</div><div className="mx-auto mt-4 h-px w-48 bg-gradient-to-r from-transparent via-amber-300 to-transparent" /><div className="mt-4 text-xs text-slate-400">Issued {new Date(certificate.issued_at).toLocaleDateString()} · {certificate.certificate_number}</div></div><div className="relative flex items-center justify-between border-t border-white/10 bg-slate-950/35 px-5 py-4"><Link to="/learn/courses/$slug" params={{ slug: certificate.course?.slug || "" }} className="text-xs font-semibold text-cyan-300 hover:text-cyan-200">View course</Link><button type="button" onClick={() => void printCertificate(certificate)} disabled={printing !== null} className="learn-secondary-button border-cyan-300/20 bg-cyan-300/5 disabled:cursor-not-allowed disabled:opacity-50"><Printer size={15} />{printing === certificate.id ? "Preparing…" : "Print certificate"}</button></div></article>)}</div>}</LearnShell>;
+  return <LearnShell><div className="mb-4"><Link to="/learn" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={15} />Learning hub</Link></div><SectionHeader eyebrow="Achievements" title="My certificates" description="Your issued certificates remain available here even if you later retake a course." />{loading ? <div className="learn-card flex items-center gap-3 p-6 text-sm text-slate-400"><Loader2 size={18} className="animate-spin" />Checking certificate records...</div> : error ? <div className="learn-card p-6 text-sm text-red-300">{error}</div> : !certificates.length ? <div className="learn-card p-8 text-center"><Award className="mx-auto text-cyan-300" size={36} /><h2 className="mt-4 text-lg font-bold">No certificates yet</h2><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-400">Certificates appear here after your course completion and any required assessment criteria are satisfied.</p><Link to="/learn/courses" className="learn-primary-button mt-5 inline-flex"><BookOpen size={15} />Browse courses</Link></div> : <div className="grid gap-5 lg:grid-cols-2">{certificates.map((certificate) => <article key={certificate.id} className="relative overflow-hidden rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950/40 shadow-lg shadow-cyan-950/20" id={`certificate-${certificate.id}`}><div className="pointer-events-none absolute -left-16 -top-12 h-32 w-72 -rotate-12 rounded-full bg-gradient-to-r from-blue-950 via-cyan-600 to-amber-400 opacity-80" /><div className="pointer-events-none absolute -bottom-16 -right-16 h-32 w-72 -rotate-12 rounded-full bg-gradient-to-r from-amber-400 via-cyan-600 to-blue-950 opacity-80" /><div className="relative p-7 text-center"><div className="text-xs font-bold uppercase tracking-[.25em] text-cyan-300">Certificate of Completion</div><div className="mx-auto mt-4 flex h-16 w-16 items-center justify-center rounded-full border border-amber-300/60 bg-amber-300/10 shadow-[0_0_25px_rgba(251,191,36,.12)]"><Star className="text-amber-300" size={29} fill="currentColor" /></div><h2 className="mt-4 text-2xl font-bold text-white">{name}</h2><p className="mt-2 text-sm text-slate-400">has successfully completed</p><div className="mt-2 text-xl font-bold text-cyan-200">{certificate.course?.title || "Course"}</div><div className="mx-auto mt-4 h-px w-48 bg-gradient-to-r from-transparent via-amber-300 to-transparent" /><div className="mt-4 text-xs text-slate-400">Issued {new Date(certificate.issued_at).toLocaleDateString()} · {certificate.certificate_number}</div></div><div className="relative flex items-center justify-between border-t border-white/10 bg-slate-950/35 px-5 py-4"><Link to="/learn/courses/$slug" params={{ slug: certificate.course?.slug || "" }} className="text-xs font-semibold text-cyan-300 hover:text-cyan-200">View course</Link><button type="button" onClick={() => void printCertificate(certificate)} disabled={printing !== null} className="learn-secondary-button border-cyan-300/20 bg-cyan-300/5 disabled:cursor-not-allowed disabled:opacity-50"><Printer size={15} />{printing === certificate.id ? "Preparing…" : "Print certificate"}</button></div></article>)}</div>}</LearnShell>;
 }
