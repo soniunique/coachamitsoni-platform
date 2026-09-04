@@ -16,6 +16,13 @@
   outline-offset: 2px;
 }
 
+/* Keep hover visually distinct from the stronger active route treatment. */
+.learn-nav-item:hover:not(.active) {
+  color: #e6edf7;
+  background: rgba(255,255,255,.028);
+  box-shadow: none;
+}
+
 .learn-input::placeholder {
   color: rgba(148,163,184,.78);
 }
