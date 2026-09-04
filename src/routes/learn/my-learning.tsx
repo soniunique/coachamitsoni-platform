@@ -79,6 +79,11 @@ function MyLearning() {
 
   async function retakeCourse(course: (typeof courseProgress)[number]) {
     if (course.percent !== 100 || course.total <= 0 || retakingCourseId) return;
+    const confirmed = window.confirm(
+      `Retake “${course.title}”?\n\nThis will reset your lesson progress for this course and take you back through it from the beginning. Any certificate you have already earned will remain valid.`,
+    );
+    if (!confirmed) return;
+
     setRetakingCourseId(course.id); setError("");
 
     const { data: { user } } = await supabase.auth.getUser();
