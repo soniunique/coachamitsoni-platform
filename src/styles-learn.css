@@ -42,3 +42,20 @@ button:has(svg.lucide-trash-2):disabled{color:#64748b;border-color:rgba(148,163,
 .learn-status-pill.learn-status-archived{color:#cbd5e1;border:1px solid rgba(148,163,184,.28);background:rgba(100,116,139,.12)}
 .learn-card:hover{border-color:rgba(103,232,249,.18);box-shadow:0 26px 70px -44px rgba(0,0,0,.95),0 0 0 1px rgba(34,211,238,.025)}
 @media(prefers-reduced-motion:reduce){.learn-card{transition:none}}
+
+
+/* LMS PREMIUM UI REFINEMENT — 04 September 2026 */
+/* Keep semantic action colours; refine hierarchy, hover feedback and protected actions. */
+.learn-course-card{position:relative;overflow:hidden;border-color:rgba(148,163,184,.14);background:linear-gradient(145deg,rgba(30,41,59,.58),rgba(15,23,42,.38));box-shadow:0 18px 50px -40px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.025);transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease,background .2s ease}
+.learn-course-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,rgba(34,211,238,.0),rgba(34,211,238,.45),rgba(139,92,246,.18),rgba(34,211,238,.0));opacity:0;transition:opacity .2s ease}
+.learn-course-card:hover{transform:translateY(-2px);border-color:rgba(103,232,249,.24);background:linear-gradient(145deg,rgba(30,41,59,.7),rgba(15,23,42,.46));box-shadow:0 24px 60px -40px rgba(0,0,0,.95),0 0 0 1px rgba(34,211,238,.035)}
+.learn-course-card:hover::before{opacity:1}
+.learn-course-card h3{letter-spacing:-.01em}
+.learn-course-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:13px;font-size:11px;color:#94a3b8}
+.learn-course-meta span{display:inline-flex;align-items:center;gap:5px}
+.learn-course-meta span+span::before{content:"";width:3px;height:3px;border-radius:999px;background:rgba(148,163,184,.42);margin-right:2px}
+.learn-course-card .learn-status-pill{flex-shrink:0}
+.learn-course-card .learn-icon-button[disabled]{border-color:rgba(148,163,184,.1);color:#64748b;background:rgba(15,23,42,.35);opacity:.72}
+.learn-course-card .learn-icon-button[disabled]:hover{border-color:rgba(148,163,184,.1);color:#64748b;background:rgba(15,23,42,.35)}
+.learn-card > .learn-card{box-shadow:none}
+@media(prefers-reduced-motion:reduce){.learn-course-card{transition:none}.learn-course-card:hover{transform:none}}
