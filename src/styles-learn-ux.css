@@ -16,11 +16,16 @@
   outline-offset: 2px;
 }
 
-/* Active route is the only navigation item allowed to receive the strong active treatment. */
-.learn-nav-item:not(.active):hover,
-.learn-nav-item:not(.active):focus-visible {
-  color: #e6edf7 !important;
-  background: rgba(255,255,255,.028) !important;
+/* Only the active route may carry navigation emphasis. */
+.learn-nav-item:not(.active) {
+  color: #a5b4c7 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.learn-nav-item:not(.active):hover {
+  color: #a5b4c7 !important;
+  background: transparent !important;
   box-shadow: none !important;
 }
 
