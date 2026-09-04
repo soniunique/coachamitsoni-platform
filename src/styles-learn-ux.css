@@ -16,11 +16,19 @@
   outline-offset: 2px;
 }
 
-/* Keep hover visually distinct from the stronger active route treatment. */
-.learn-nav-item:hover:not(.active) {
-  color: #e6edf7;
-  background: rgba(255,255,255,.028);
-  box-shadow: none;
+/* Active route is the only navigation item allowed to receive the strong active treatment. */
+.learn-nav-item:not(.active):hover,
+.learn-nav-item:not(.active):focus-visible {
+  color: #e6edf7 !important;
+  background: rgba(255,255,255,.028) !important;
+  box-shadow: none !important;
+}
+
+.learn-nav-item.active,
+.learn-nav-item[aria-current="page"] {
+  color: #fff !important;
+  background: linear-gradient(90deg,rgba(34,211,238,.2),rgba(139,92,246,.14)) !important;
+  box-shadow: inset 3px 0 #22d3ee,0 8px 24px -18px rgba(34,211,238,.65) !important;
 }
 
 .learn-input::placeholder {
