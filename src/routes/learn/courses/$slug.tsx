@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/learn/courses/$slug")({ component: CourseDetail });
 
-type Course = { id: string; slug: string; title: string; description: string | null; thumbnail_url: string | null; status: string; program_id: string };
+type Course = { id: string; slug: string; title: string; description: string | null; thumbnail_url: string | null; status: string; program_id: string; assessment_enabled: boolean };
 type Module = { id: string; title: string; description: string | null; sort_order: number };
 type Lesson = { id: string; module_id: string; title: string; description: string | null; content_url: string | null; content_body: string | null; content_storage_path: string | null; learner_notes: string | null; learner_resource_url: string | null; content_type: string | null; sort_order: number; is_preview: boolean };
 
@@ -45,7 +45,7 @@ function CourseDetail() {
 
   async function loadCourse() {
     setLoading(true); setError("");
-    const { data: c, error: ce } = await supabase.from("courses").select("id,slug,title,description,thumbnail_url,status,program_id").eq("slug", slug).eq("status", "published").maybeSingle();
+    const { data: c, error: ce } = await supabase.from("courses").select("id,slug,title,description,thumbnail_url,status,program_id,assessment_enabled").eq("slug", slug).eq("status", "published").maybeSingle();
     if (ce || !c) { setError(ce?.message || "Course not found."); setLoading(false); return; }
     setCourse(c as Course);
     const { data: ms, error: me } = await supabase.from("course_modules").select("id,title,description,sort_order").eq("course_id", c.id).order("sort_order");
@@ -165,8 +165,13 @@ function CourseDetail() {
 
   function continueAfterCompletion() {
     setCompletionOpen(false);
-    if (nextCourseSlug) void navigate({ to: "/learn/courses/$slug", params: { slug: nextCourseSlug } });
-    else void navigate({ to: "/learn/my-learning" });
+    if (course?.assessment_enabled) {
+      void navigate({ to: "/learn/assessments/$slug", params: { slug: course.slug } });
+    } else if (nextCourseSlug) {
+      void navigate({ to: "/learn/courses/$slug", params: { slug: nextCourseSlug } });
+    } else {
+      void navigate({ to: "/learn/my-learning" });
+    }
   }
 
   function toggleModule(id: string) { setExpanded((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); }
