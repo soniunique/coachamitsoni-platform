@@ -7,9 +7,6 @@ import { AssessmentSurface } from "@/components/learn/AssessmentSurface";
  */
 export function AssessmentSurfaceRetake({ pathname, isAdmin }: { pathname: string; isAdmin: boolean }) {
   if (!isAdmin && pathname.startsWith("/learn/courses/") && pathname !== "/learn/courses") return null;
-  if (!isAdmin && pathname.startsWith("/learn/assessments/") && pathname !== "/learn/assessments") {
-    const slug = pathname.split("/").filter(Boolean).pop() || "";
-    return slug ? <AssessmentSurface pathname={`/learn/courses/${slug}`} isAdmin={false} /> : null;
-  }
+  if (!isAdmin && pathname.startsWith("/learn/assessments/") && pathname !== "/learn/assessments") return null;
   return <AssessmentSurface pathname={pathname} isAdmin={isAdmin} />;
 }
