@@ -8,7 +8,7 @@ export const Route = createFileRoute("/learn/courses/$slug")({ component: Course
 
 type Course = { id: string; slug: string; title: string; description: string | null; thumbnail_url: string | null; status: string; program_id: string };
 type Module = { id: string; title: string; description: string | null; sort_order: number };
-type Lesson = { id: string; module_id: string; title: string; description: string | null; content_url: string | null; content_body: string | null; content_storage_path: string | null; content_type: string | null; sort_order: number; is_preview: boolean };
+type Lesson = { id: string; module_id: string; title: string; description: string | null; content_url: string | null; content_body: string | null; content_storage_path: string | null; learner_notes: string | null; learner_resource_url: string | null; content_type: string | null; sort_order: number; is_preview: boolean };
 
 const meta: Record<string, { label: string; icon: typeof Film }> = {
   video: { label: "Video", icon: Film }, article: { label: "Text", icon: FileText }, pdf: { label: "PDF", icon: FileText }, external: { label: "Link", icon: Link2 }, "external-link": { label: "Link", icon: Link2 },
@@ -59,7 +59,7 @@ function CourseDetail() {
     }
     setIsAdmin(admin); setEnrolled(access);
     const ids = loadedModules.map((m) => m.id);
-    const { data: ls, error: le } = await supabase.from("course_lessons").select("id,module_id,title,description,content_url,content_body,content_storage_path,content_type,sort_order,is_preview").in("module_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("sort_order");
+    const { data: ls, error: le } = await supabase.from("course_lessons").select("id,module_id,title,description,content_url,content_body,content_storage_path,learner_notes,learner_resource_url,content_type,sort_order,is_preview").in("module_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]).order("sort_order");
     if (le) { setError(le.message); setLoading(false); return; }
     const loadedLessons = (ls || []) as Lesson[];
     const moduleOrder = new Map(loadedModules.map((m, index) => [m.id, index]));
@@ -102,7 +102,7 @@ function CourseDetail() {
       const { data: e } = await supabase.from("program_enrollments").select("id").eq("user_id", user.id).eq("program_id", course?.program_id || "").in("status", ["active", "completed"]).maybeSingle();
       if (!e) { setEnrolled(false); setSelectedId(null); setSelectedUrl(null); setError("An administrator must enrol you in this program before lessons can be opened."); return; }
     }
-    const { data: fresh, error: fe } = await supabase.from("course_lessons").select("id,module_id,title,description,content_url,content_body,content_storage_path,content_type,sort_order,is_preview").eq("id", lesson.id).maybeSingle();
+    const { data: fresh, error: fe } = await supabase.from("course_lessons").select("id,module_id,title,description,content_url,content_body,content_storage_path,learner_notes,learner_resource_url,content_type,sort_order,is_preview").eq("id", lesson.id).maybeSingle();
     if (fe || !fresh) { setError(fe?.message || "This lesson is no longer available."); return; }
     setSelectedId(fresh.id); setSelectedUrl(null); setLoadingLesson(true); setError(""); setMobileOutlineOpen(false);
     if (fresh.content_storage_path) { const { data, error: se } = await supabase.storage.from("course-content").createSignedUrl(fresh.content_storage_path, 3600); if (se) setError(se.message); else setSelectedUrl(data?.signedUrl || null); }
@@ -201,6 +201,7 @@ function CourseDetail() {
               <div className="border-t border-white/10 px-4 py-3 sm:px-5"><div className="text-[10px] uppercase tracking-[.14em] text-slate-500">{meta[selected.content_type || ""]?.label || "Lesson"}</div><div className="mt-1 flex items-start justify-between gap-3"><div><h1 className="text-lg font-bold text-white">{selected.title}</h1>{selected.description && <p className="mt-1 text-xs leading-5 text-slate-400">{selected.description}</p>}</div>{completed.has(selected.id) && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300"><Check size={12} />Complete</span>}</div></div>
             </section>
             <section className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => void saveCompletion(selected.id, !completed.has(selected.id))} disabled={!enrolled || savingComplete} className={`learn-secondary-button ${completed.has(selected.id) ? "border-emerald-400/30 text-emerald-300" : ""}`}><Check size={15} />{savingComplete ? "Saving…" : completed.has(selected.id) ? "Mark incomplete" : "Mark complete"}</button><div className="flex gap-2"><button type="button" disabled={!previous || !enrolled || savingComplete} onClick={() => previous && void openLesson(previous, false)} className="learn-secondary-button disabled:opacity-40"><ArrowLeft size={14} />Previous</button>{next ? <button type="button" disabled={!enrolled || savingComplete} onClick={() => void handleNext()} className="learn-primary-button disabled:opacity-40">Next<ArrowRight size={14} /></button> : <button type="button" disabled={!enrolled || selectedIndex !== lessons.length - 1 || savingComplete || findingNextCourse} onClick={() => void handleCourseComplete()} className="learn-primary-button disabled:opacity-40">{findingNextCourse ? "Checking…" : "Course complete"}<ArrowRight size={14} /></button>}</div></section>
+            {(selected.learner_notes?.trim() || selected.learner_resource_url?.trim()) && <section className="mt-4 learn-card border border-cyan-400/10 bg-white/[.02] p-5"><div className="learn-eyebrow">Additional resources</div>{selected.learner_notes?.trim() && <div className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-300">{selected.learner_notes}</div>}{selected.learner_resource_url?.trim() && <div className="mt-4"><a href={selected.learner_resource_url} target="_blank" rel="noreferrer" className="learn-primary-button"><Link2 size={16} />Open resource <ExternalLink size={14} /></a></div>}</section>}
             <div className="mt-2 text-[10px] text-slate-500">Lesson {selectedIndex + 1} of {lessons.length}</div>
           </main>
           {contentPanelOpen && <aside className="hidden lg:block"><div className="learn-card sticky top-4 overflow-hidden">{roadmap}</div></aside>}
