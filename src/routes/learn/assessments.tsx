@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AssessmentSurface } from "@/components/learn/AssessmentSurface";
 import { LearnShell, SectionHeader } from "@/components/learn/LearnShell";
