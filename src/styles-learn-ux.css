@@ -16,7 +16,7 @@
   outline-offset: 2px;
 }
 
-/* Only the active route may carry navigation emphasis. */
+/* Only the route state computed by LearnShell (.active) controls nav emphasis. */
 .learn-nav-item:not(.active) {
   color: #a5b4c7 !important;
   background: transparent !important;
@@ -29,8 +29,7 @@
   box-shadow: none !important;
 }
 
-.learn-nav-item.active,
-.learn-nav-item[aria-current="page"] {
+.learn-nav-item.active {
   color: #fff !important;
   background: linear-gradient(90deg,rgba(34,211,238,.2),rgba(139,92,246,.14)) !important;
   box-shadow: inset 3px 0 #22d3ee,0 8px 24px -18px rgba(34,211,238,.65) !important;
