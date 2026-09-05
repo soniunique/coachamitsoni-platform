@@ -81,3 +81,10 @@
     transition: none !important;
   }
 }
+
+/* Student course-content protection: keep browser print/save from exposing LMS lesson content. */
+@media print {
+  body[data-learn-protected-content="true"] .learn-course-player-shell {
+    display: none !important;
+  }
+}
