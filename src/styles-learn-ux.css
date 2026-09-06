@@ -121,8 +121,6 @@
     flex: 0 0 auto;
   }
 
-  /* The profile menu remains a compact global-toolbar disclosure, but gets the
-     same 40px interaction rhythm used by the main shell navigation. */
   .learn-topbar .relative > div.absolute {
     width: 224px !important;
     padding: 7px !important;
@@ -156,20 +154,16 @@
  * without changing the existing visual language or feature behavior.
  */
 @media (min-width: 1024px) {
-  /* Use the available desktop canvas more effectively. */
   .learn-content {
     width: min(100%, 1500px) !important;
     max-width: 1500px !important;
     padding: 28px 32px 48px !important;
   }
 
-  /* Relax common Tailwind content caps used by learner/admin pages so the
-     reference dashboard does not become an unnecessarily narrow island. */
   .learn-content .max-w-4xl { max-width: 1080px !important; }
   .learn-content .max-w-5xl { max-width: 1200px !important; }
   .learn-content .max-w-6xl { max-width: 1320px !important; }
 
-  /* Main body copy should read at normal UI/body size. */
   .learn-content p.text-sm,
   .learn-content li.text-sm,
   .learn-card p.text-sm,
@@ -178,14 +172,12 @@
     line-height: 1.55 !important;
   }
 
-  /* Supporting copy: still secondary, but not micro-sized. */
   .learn-content p.text-xs,
   .learn-card p.text-xs {
     font-size: 12px !important;
     line-height: 1.45 !important;
   }
 
-  /* Card/object titles get enough weight and size to remain scannable. */
   .learn-card h2 {
     font-size: 18px !important;
     line-height: 1.3 !important;
@@ -196,13 +188,11 @@
     line-height: 1.35 !important;
   }
 
-  /* Section labels are labels, not fine print. */
   .learn-content .learn-eyebrow {
     font-size: 10px !important;
     letter-spacing: .16em !important;
   }
 
-  /* Give standard content cards a slightly stronger desktop content rhythm. */
   .learn-content .learn-card.p-5 {
     padding: 22px !important;
   }
@@ -211,19 +201,16 @@
     padding: 24px !important;
   }
 
-  /* Dashboard stat values should remain prominent relative to surrounding copy. */
   .learn-content .learn-card .text-2xl,
   .learn-content .learn-card .text-3xl {
     line-height: 1.15 !important;
   }
 
-  /* Active navigation remains prominent while inactive navigation stays quiet. */
   .learn-nav-item {
     font-size: 14px !important;
     min-height: 42px !important;
   }
 
-  /* Global toolbar identity is slightly more legible. */
   .learn-topbar .text-xs {
     font-size: 10px !important;
   }
@@ -237,4 +224,45 @@
   .learn-content {
     width: 100%;
   }
+}
+
+/* GLOBAL LMS VISUAL BALANCE REFINEMENT — 06 September 2026
+ * Purpose: correct desktop composition after the typography pass.
+ * Use the wider canvas for primary dashboard/list content while keeping
+ * reading-focused and course-player layouts intentionally constrained.
+ */
+@media (min-width: 1024px) {
+  /* Dashboard/list containers should feel anchored to the application canvas,
+     not like a small island in the center of a large screen. */
+  .learn-content .max-w-4xl {
+    width: min(100%, 1280px) !important;
+    max-width: 1280px !important;
+  }
+
+  .learn-content .max-w-5xl {
+    width: min(100%, 1360px) !important;
+    max-width: 1360px !important;
+  }
+
+  .learn-content .max-w-6xl {
+    width: min(100%, 1440px) !important;
+    max-width: 1440px !important;
+  }
+
+  /* Common UI metadata is readable without promoting it to heading size. */
+  .learn-content .text-xs {
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+  }
+
+  /* Keep deliberate micro-labels compact. */
+  .learn-content .text-\[10px\],
+  .learn-content .text-\[9px\] {
+    line-height: 1.35 !important;
+  }
+
+  /* Improve section-to-content rhythm while avoiding excessive empty canvas. */
+  .learn-content .mb-7 { margin-bottom: 24px !important; }
+  .learn-content .mt-6 { margin-top: 24px !important; }
+  .learn-content .gap-6 { gap: 20px !important; }
 }
