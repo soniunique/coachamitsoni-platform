@@ -82,187 +82,125 @@
   }
 }
 
-/* Student course-content protection: keep browser print/save from exposing LMS lesson content. */
 @media print {
   body[data-learn-protected-content="true"] .learn-course-player-shell {
     display: none !important;
   }
 }
 
-/* GLOBAL LMS SHELL PROPORTION REFINEMENT — 06 September 2026
- * Reference: established main-page content scale. Keep the visual language unchanged;
- * bring sidebar navigation and profile-menu interaction density into the same rhythm.
- */
+/* GLOBAL LMS SHELL PROPORTION REFINEMENT — 06 September 2026 */
 @media (min-width: 1024px) {
-  .learn-sidebar > div:first-child {
-    padding: 18px 18px 16px !important;
-  }
-
-  .learn-sidebar > div:nth-child(2) {
-    padding: 18px 12px 0 !important;
-  }
-
-  .learn-sidebar > div:nth-child(2) > div {
-    padding: 0 12px 9px !important;
-  }
-
-  .learn-nav-item {
-    min-height: 40px !important;
-    padding: 9px 12px !important;
-    gap: 10px !important;
-    border-radius: 10px;
-    font-size: 13px !important;
-    line-height: 1.25;
-  }
-
-  .learn-nav-item svg {
-    width: 17px;
-    height: 17px;
-    flex: 0 0 auto;
-  }
-
-  .learn-topbar .relative > div.absolute {
-    width: 224px !important;
-    padding: 7px !important;
-    border-radius: 14px !important;
-  }
-
+  .learn-sidebar > div:first-child { padding: 18px 18px 16px !important; }
+  .learn-sidebar > div:nth-child(2) { padding: 18px 12px 0 !important; }
+  .learn-sidebar > div:nth-child(2) > div { padding: 0 12px 9px !important; }
+  .learn-nav-item { min-height: 40px !important; padding: 9px 12px !important; gap: 10px !important; border-radius: 10px; font-size: 13px !important; line-height: 1.25; }
+  .learn-nav-item svg { width: 17px; height: 17px; flex: 0 0 auto; }
+  .learn-topbar .relative > div.absolute { width: 224px !important; padding: 7px !important; border-radius: 14px !important; }
   .learn-topbar .relative > div.absolute a,
-  .learn-topbar .relative > div.absolute button {
-    min-height: 40px !important;
-    padding: 9px 10px !important;
-    gap: 10px !important;
-    border-radius: 9px !important;
-    font-size: 13px !important;
-    line-height: 1.25;
-  }
-
-  .learn-topbar .relative > div.absolute svg {
-    width: 16px;
-    height: 16px;
-    flex: 0 0 auto;
-  }
-
-  .learn-topbar .relative > div.absolute .my-1 {
-    margin-top: 6px !important;
-    margin-bottom: 6px !important;
-  }
+  .learn-topbar .relative > div.absolute button { min-height: 40px !important; padding: 9px 10px !important; gap: 10px !important; border-radius: 9px !important; font-size: 13px !important; line-height: 1.25; }
+  .learn-topbar .relative > div.absolute svg { width: 16px; height: 16px; flex: 0 0 auto; }
+  .learn-topbar .relative > div.absolute .my-1 { margin-top: 6px !important; margin-bottom: 6px !important; }
 }
 
-/* GLOBAL LMS VISUAL SCALE REFINEMENT — 06 September 2026
- * Purpose: improve desktop space utilization, typography hierarchy, and visual density
- * without changing the existing visual language or feature behavior.
- */
+/* GLOBAL LMS VISUAL SCALE REFINEMENT — 06 September 2026 */
 @media (min-width: 1024px) {
-  .learn-content {
-    width: min(100%, 1500px) !important;
-    max-width: 1500px !important;
-    padding: 28px 32px 48px !important;
-  }
-
+  .learn-content { width: min(100%, 1500px) !important; max-width: 1500px !important; padding: 28px 32px 48px !important; }
   .learn-content .max-w-4xl { max-width: 1080px !important; }
   .learn-content .max-w-5xl { max-width: 1200px !important; }
   .learn-content .max-w-6xl { max-width: 1320px !important; }
-
   .learn-content p.text-sm,
   .learn-content li.text-sm,
   .learn-card p.text-sm,
-  .learn-card li.text-sm {
-    font-size: 14px !important;
-    line-height: 1.55 !important;
-  }
-
+  .learn-card li.text-sm { font-size: 14px !important; line-height: 1.55 !important; }
   .learn-content p.text-xs,
-  .learn-card p.text-xs {
-    font-size: 12px !important;
-    line-height: 1.45 !important;
-  }
-
-  .learn-card h2 {
-    font-size: 18px !important;
-    line-height: 1.3 !important;
-  }
-
-  .learn-card h3 {
-    font-size: 16px !important;
-    line-height: 1.35 !important;
-  }
-
-  .learn-content .learn-eyebrow {
-    font-size: 10px !important;
-    letter-spacing: .16em !important;
-  }
-
-  .learn-content .learn-card.p-5 {
-    padding: 22px !important;
-  }
-
-  .learn-content .learn-card.p-6 {
-    padding: 24px !important;
-  }
-
+  .learn-card p.text-xs { font-size: 12px !important; line-height: 1.45 !important; }
+  .learn-card h2 { font-size: 18px !important; line-height: 1.3 !important; }
+  .learn-card h3 { font-size: 16px !important; line-height: 1.35 !important; }
+  .learn-content .learn-eyebrow { font-size: 10px !important; letter-spacing: .16em !important; }
+  .learn-content .learn-card.p-5 { padding: 22px !important; }
+  .learn-content .learn-card.p-6 { padding: 24px !important; }
   .learn-content .learn-card .text-2xl,
-  .learn-content .learn-card .text-3xl {
-    line-height: 1.15 !important;
-  }
-
-  .learn-nav-item {
-    font-size: 14px !important;
-    min-height: 42px !important;
-  }
-
-  .learn-topbar .text-xs {
-    font-size: 10px !important;
-  }
-
-  .learn-topbar .text-sm {
-    font-size: 14px !important;
-  }
+  .learn-content .learn-card .text-3xl { line-height: 1.15 !important; }
+  .learn-nav-item { font-size: 14px !important; min-height: 42px !important; }
+  .learn-topbar .text-xs { font-size: 10px !important; }
+  .learn-topbar .text-sm { font-size: 14px !important; }
 }
 
-@media (max-width: 1023px) {
-  .learn-content {
-    width: 100%;
-  }
-}
+@media (max-width: 1023px) { .learn-content { width: 100%; } }
 
-/* GLOBAL LMS VISUAL BALANCE REFINEMENT — 06 September 2026
- * Purpose: correct desktop composition after the typography pass.
- * Use the wider canvas for primary dashboard/list content while keeping
- * reading-focused and course-player layouts intentionally constrained.
- */
+/* GLOBAL LMS VISUAL BALANCE REFINEMENT — 06 September 2026 */
 @media (min-width: 1024px) {
-  /* Dashboard/list containers should feel anchored to the application canvas,
-     not like a small island in the center of a large screen. */
-  .learn-content .max-w-4xl {
-    width: min(100%, 1280px) !important;
-    max-width: 1280px !important;
-  }
-
-  .learn-content .max-w-5xl {
-    width: min(100%, 1360px) !important;
-    max-width: 1360px !important;
-  }
-
-  .learn-content .max-w-6xl {
-    width: min(100%, 1440px) !important;
-    max-width: 1440px !important;
-  }
-
-  /* Common UI metadata is readable without promoting it to heading size. */
-  .learn-content .text-xs {
-    font-size: 12px !important;
-    line-height: 1.45 !important;
-  }
-
-  /* Keep deliberate micro-labels compact. */
-  .learn-content .text-\[10px\],
-  .learn-content .text-\[9px\] {
-    line-height: 1.35 !important;
-  }
-
-  /* Improve section-to-content rhythm while avoiding excessive empty canvas. */
+  .learn-content .max-w-4xl { width: min(100%, 1280px) !important; max-width: 1280px !important; }
+  .learn-content .max-w-5xl { width: min(100%, 1360px) !important; max-width: 1360px !important; }
+  .learn-content .max-w-6xl { width: min(100%, 1440px) !important; max-width: 1440px !important; }
+  .learn-content .text-xs { font-size: 12px !important; line-height: 1.45 !important; }
+  .learn-content .text-\[10px\], .learn-content .text-\[9px\] { line-height: 1.35 !important; }
   .learn-content .mb-7 { margin-bottom: 24px !important; }
   .learn-content .mt-6 { margin-top: 24px !important; }
   .learn-content .gap-6 { gap: 20px !important; }
+}
+
+/* DISCUSSIONS + MESSAGES CONSISTENCY — 06 September 2026
+ * Align split-view lists, selected rows, metadata and tabs with the global LMS rhythm.
+ */
+@media (min-width: 768px) {
+  /* Discussion topic list */
+  .learn-content aside.learn-card .divide-y > button {
+    min-height: 76px;
+    padding: 16px 20px !important;
+    transition: background .2s ease, box-shadow .2s ease;
+  }
+
+  .learn-content aside.learn-card .divide-y > button:hover {
+    background: rgba(255,255,255,.035);
+  }
+
+  .learn-content aside.learn-card .divide-y > button[class*="bg-cyan-400/8"] {
+    background: linear-gradient(90deg,rgba(34,211,238,.11),rgba(139,92,246,.06)) !important;
+    box-shadow: inset 3px 0 #22d3ee;
+  }
+
+  .learn-content aside.learn-card .divide-y > button .font-semibold {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  /* Message tabs: selected state is explicit; inactive tabs stay quiet. */
+  .learn-content .learn-card.overflow-hidden > div.flex.border-b > button {
+    min-height: 44px;
+    padding: 12px 20px !important;
+    border-bottom-width: 2px;
+  }
+
+  .learn-content .learn-card.overflow-hidden > div.flex.border-b > button:not([class*="border-cyan-300"]) {
+    color: #94a3b8 !important;
+    background: transparent !important;
+  }
+
+  .learn-content .learn-card.overflow-hidden > div.flex.border-b > button:not([class*="border-cyan-300"]):hover {
+    color: #e2e8f0 !important;
+    background: rgba(255,255,255,.035) !important;
+  }
+
+  /* Shared conversation list rhythm. */
+  .learn-content .learn-card aside > button {
+    min-height: 72px;
+    padding: 15px 20px !important;
+  }
+
+  .learn-content .learn-card aside > button .font-semibold {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  /* Conversation headers and discussion detail headings share the same density. */
+  .learn-content .learn-card section > div.border-b,
+  .learn-content main.learn-card > div.border-b {
+    padding-top: 18px !important;
+    padding-bottom: 18px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learn-content aside.learn-card .divide-y > button { transition: none !important; }
 }
