@@ -116,3 +116,5 @@ function Discussions() {
     </>}
   </LearnShell>;
 }
+
+// Keep this page aligned with the shared LMS empty-state pattern: contextual, actionable, and non-blocking.
