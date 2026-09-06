@@ -150,3 +150,91 @@
     margin-bottom: 6px !important;
   }
 }
+
+/* GLOBAL LMS VISUAL SCALE REFINEMENT — 06 September 2026
+ * Purpose: improve desktop space utilization, typography hierarchy, and visual density
+ * without changing the existing visual language or feature behavior.
+ */
+@media (min-width: 1024px) {
+  /* Use the available desktop canvas more effectively. */
+  .learn-content {
+    width: min(100%, 1500px) !important;
+    max-width: 1500px !important;
+    padding: 28px 32px 48px !important;
+  }
+
+  /* Relax common Tailwind content caps used by learner/admin pages so the
+     reference dashboard does not become an unnecessarily narrow island. */
+  .learn-content .max-w-4xl { max-width: 1080px !important; }
+  .learn-content .max-w-5xl { max-width: 1200px !important; }
+  .learn-content .max-w-6xl { max-width: 1320px !important; }
+
+  /* Main body copy should read at normal UI/body size. */
+  .learn-content p.text-sm,
+  .learn-content li.text-sm,
+  .learn-card p.text-sm,
+  .learn-card li.text-sm {
+    font-size: 14px !important;
+    line-height: 1.55 !important;
+  }
+
+  /* Supporting copy: still secondary, but not micro-sized. */
+  .learn-content p.text-xs,
+  .learn-card p.text-xs {
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+  }
+
+  /* Card/object titles get enough weight and size to remain scannable. */
+  .learn-card h2 {
+    font-size: 18px !important;
+    line-height: 1.3 !important;
+  }
+
+  .learn-card h3 {
+    font-size: 16px !important;
+    line-height: 1.35 !important;
+  }
+
+  /* Section labels are labels, not fine print. */
+  .learn-content .learn-eyebrow {
+    font-size: 10px !important;
+    letter-spacing: .16em !important;
+  }
+
+  /* Give standard content cards a slightly stronger desktop content rhythm. */
+  .learn-content .learn-card.p-5 {
+    padding: 22px !important;
+  }
+
+  .learn-content .learn-card.p-6 {
+    padding: 24px !important;
+  }
+
+  /* Dashboard stat values should remain prominent relative to surrounding copy. */
+  .learn-content .learn-card .text-2xl,
+  .learn-content .learn-card .text-3xl {
+    line-height: 1.15 !important;
+  }
+
+  /* Active navigation remains prominent while inactive navigation stays quiet. */
+  .learn-nav-item {
+    font-size: 14px !important;
+    min-height: 42px !important;
+  }
+
+  /* Global toolbar identity is slightly more legible. */
+  .learn-topbar .text-xs {
+    font-size: 10px !important;
+  }
+
+  .learn-topbar .text-sm {
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .learn-content {
+    width: 100%;
+  }
+}
