@@ -88,3 +88,65 @@
     display: none !important;
   }
 }
+
+/* GLOBAL LMS SHELL PROPORTION REFINEMENT — 06 September 2026
+ * Reference: established main-page content scale. Keep the visual language unchanged;
+ * bring sidebar navigation and profile-menu interaction density into the same rhythm.
+ */
+@media (min-width: 1024px) {
+  .learn-sidebar > div:first-child {
+    padding: 18px 18px 16px !important;
+  }
+
+  .learn-sidebar > div:nth-child(2) {
+    padding: 18px 12px 0 !important;
+  }
+
+  .learn-sidebar > div:nth-child(2) > div {
+    padding: 0 12px 9px !important;
+  }
+
+  .learn-nav-item {
+    min-height: 40px !important;
+    padding: 9px 12px !important;
+    gap: 10px !important;
+    border-radius: 10px;
+    font-size: 13px !important;
+    line-height: 1.25;
+  }
+
+  .learn-nav-item svg {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 auto;
+  }
+
+  /* The profile menu remains a compact global-toolbar disclosure, but gets the
+     same 40px interaction rhythm used by the main shell navigation. */
+  .learn-topbar .relative > div.absolute {
+    width: 224px !important;
+    padding: 7px !important;
+    border-radius: 14px !important;
+  }
+
+  .learn-topbar .relative > div.absolute a,
+  .learn-topbar .relative > div.absolute button {
+    min-height: 40px !important;
+    padding: 9px 10px !important;
+    gap: 10px !important;
+    border-radius: 9px !important;
+    font-size: 13px !important;
+    line-height: 1.25;
+  }
+
+  .learn-topbar .relative > div.absolute svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+  }
+
+  .learn-topbar .relative > div.absolute .my-1 {
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+  }
+}
