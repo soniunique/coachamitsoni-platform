@@ -23,7 +23,7 @@ export function SessionTimeoutGuard() {
   const location = useLocation();
   const navigate = useNavigate();
   const [userId, setUserId] = useState<string | null>(null);
-  const [lastActivityAt, setLastActivityAt] = useState<number | null>(null);
+  const [, setLastActivityAt] = useState<number | null>(null);
   const [warningOpen, setWarningOpen] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(300);
   const [signingOut, setSigningOut] = useState(false);
@@ -85,7 +85,7 @@ export function SessionTimeoutGuard() {
     if (!userId) return;
 
     const recordActivity = () => {
-      if (warningOpen || assessmentActive) return;
+      if (warningOpen) return;
       const now = Date.now();
       lastActivityRef.current = now;
       setLastActivityAt(now);
@@ -95,6 +95,9 @@ export function SessionTimeoutGuard() {
       }
     };
 
+    // These events represent deliberate user engagement. Passive media
+    // playback is intentionally excluded so a video cannot keep a session
+    // alive forever without user interaction.
     const events: Array<keyof DocumentEventMap> = [
       "pointerdown",
       "pointermove",
@@ -122,9 +125,13 @@ export function SessionTimeoutGuard() {
       if (event.key !== activityKey(userId) || !event.newValue) return;
       const timestamp = Number(event.newValue);
       if (!Number.isFinite(timestamp)) return;
+      const previous = lastActivityRef.current ?? 0;
       lastActivityRef.current = timestamp;
       setLastActivityAt(timestamp);
-      if (!warningOpen) warningDeadlineRef.current = null;
+      if (timestamp > previous) {
+        warningDeadlineRef.current = null;
+        setWarningOpen(false);
+      }
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -136,7 +143,7 @@ export function SessionTimeoutGuard() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("storage", onStorage);
     };
-  }, [userId, warningOpen, assessmentActive]);
+  }, [userId, warningOpen]);
 
   useEffect(() => {
     if (!userId || assessmentActive) {
@@ -209,7 +216,7 @@ export function SessionTimeoutGuard() {
     };
   }, [warningOpen, userId, assessmentActive, secondsRemaining, signingOut, navigate]);
 
-  async function staySignedIn() {
+  function staySignedIn() {
     if (!userId || signingOut) return;
     const now = Date.now();
     localStorage.setItem(activityKey(userId), String(now));
@@ -278,7 +285,7 @@ export function SessionTimeoutGuard() {
           </button>
           <button
             type="button"
-            onClick={() => void staySignedIn()}
+            onClick={staySignedIn}
             disabled={signingOut}
             className="learn-primary-button justify-center"
           >
